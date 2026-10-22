@@ -234,6 +234,7 @@ body.touch #btnDash{display:block}
   <div class="card" id="hostTip" style="display:none;border:1px solid var(--gold);font-size:14px;line-height:1.5">
     📌 <b>Твоё устройство — сервер этой игры.</b> Отправь ссылку и <b>сразу вернись сюда</b>: пока ты в мессенджере, телефон
     «замораживает» браузер, и друзья не могут подключиться. Не открывай ссылку на этом же телефоне — открывай её на другом.
+    <div id="hostTries" style="margin-top:8px;color:var(--muted)"></div>
   </div>
   <div class="row center"><button class="btn big b-green" id="btnStart">▶ Начать</button><button class="btn big" id="btnLobbyBack">← В меню</button></div>
 </div>
@@ -1400,10 +1401,17 @@ function peerOpts(ice){
 }
 // почему не открылся канал: сеть не пропустила (ICE) или что-то ещё
 function iceErr(dc){const pc=dc&&dc.peerConnection,s=pc&&pc.iceConnectionState;return s==='failed'||s==='disconnected'||s==='checking'?'ice-'+s:null}
+// Что видно со стороны гостя: ответил ли создатель и какие пути связи нашлись у этого устройства
+// (host — внутри сети, srflx — через внешний адрес, relay — через ретранслятор TURN)
+function connDiag(dc,types){
+  const pc=dc&&dc.peerConnection;
+  return {answered:!!(pc&&pc.remoteDescription),ice:pc?pc.iceConnectionState:'-',types:Array.from(types)};
+}
 function peerTransport(gid){
   const t=transport();
   let peer=null,dc=null;
-  const fail=err=>{if(peer){try{peer.destroy()}catch(e){}}tLost(t,err)};
+  const types=new Set();
+  const fail=err=>{t.diag=connDiag(dc,types);if(peer){try{peer.destroy()}catch(e){}}tLost(t,err)};
   Promise.all([loadPeerJs(),iceServers()]).then(([,ice])=>{
     if(t.readyState===3)return;
     peer=new Peer(peerOpts(ice));
@@ -1411,6 +1419,8 @@ function peerTransport(gid){
     peer.on('open',()=>{
       if(t.readyState===3)return;
       dc=peer.connect(PEER_PREFIX+gid,{reliable:true});
+      const pc=dc.peerConnection;
+      if(pc)pc.addEventListener('icecandidate',e=>{if(e.candidate&&e.candidate.type)types.add(e.candidate.type)});
       dc.on('open',()=>tOpen(t));
       dc.on('data',d=>tData(t,d));
       dc.on('close',()=>fail(iceErr(dc)||'closed'));
@@ -1419,7 +1429,7 @@ function peerTransport(gid){
     });
   },fail);
   // так и не соединились — сдаёмся с понятной причиной
-  setTimeout(()=>{if(t.readyState===0)fail(iceErr(dc)||(dc?'timeout':peer&&peer.open?'timeout':'no-signal'))},20000);
+  setTimeout(()=>{if(t.readyState!==0)return;const pc=dc&&dc.peerConnection;fail(!dc?(peer&&peer.open?'timeout':'no-signal'):pc&&!pc.remoteDescription?'no-answer':iceErr(dc)||'timeout')},20000);
   t.close=()=>{t.readyState=3;if(peer){try{peer.destroy()}catch(e){}}};
   return t;
 }
@@ -1428,7 +1438,13 @@ function peerTransport(gid){
 // «Слушатель» (listener) — то, что принимает гостей (PeerJS или пересылка server.py); у обоих есть destroy().
 // Снимок комнаты сохраняется, чтобы игра пережила перезагрузку вкладки хоста.
 const HOST_KEY='knives_host';
-const HOST={listener:null,hub:null,gid:null,saveT:null};
+const HOST={listener:null,hub:null,gid:null,saveT:null,tries:[]};
+function renderHostTries(){
+  const el=$('hostTries');if(!el)return;
+  const t=HOST.tries;
+  el.textContent=!t.length?'🔌 Пока никто не пытался подключиться.':
+    '🔌 Попытки подключения: '+t.map(r=>r.open?'✅ вошёл':r.ice==='failed'?'❌ сеть не пропустила':r.ice==='disconnected'?'⚠️ оборвалось':'⏳ '+r.ice).join(' · ');
+}
 // Таймер симуляции из Web Worker: в фоновой вкладке обычный setInterval замедляется до раза в секунду
 function workerEvery(fn,ms){
   try{
@@ -1489,6 +1505,13 @@ function relayRelisten(old,gid){
 }
 function hostAccept(dc){
   if(!HOST.hub){try{dc.close()}catch(e){}return}
+  // запоминаем попытку — создатель видит в комнате, дошёл ли до него друг и чем кончилось
+  const rec={ice:'new',open:false};
+  HOST.tries.push(rec);if(HOST.tries.length>6)HOST.tries.shift();
+  const pc=dc.peerConnection;
+  if(pc)pc.addEventListener('iceconnectionstatechange',()=>{rec.ice=pc.iceConnectionState;renderHostTries()});
+  dc.on('open',()=>{rec.open=true;renderHostTries()});
+  renderHostTries();
   const hub=HOST.hub;
   let sess=null;
   const conn={
@@ -1501,7 +1524,7 @@ function hostAccept(dc){
   dc.on('close',gone);dc.on('error',gone);
 }
 function hostSetup(listener,gid,snap){
-  HOST.listener=listener;HOST.gid=gid;
+  HOST.listener=listener;HOST.gid=gid;HOST.tries=[];
   HOST.hub=new KnivesHub({
     log:m=>console.log(m),
     onChange:hostSave,
@@ -1592,16 +1615,14 @@ function openSocket(first){
   NET.conn=t;
   t.onopen=()=>{NET.pingAt=NET.pongAt=0;t.send(first);keepAwake()};
   t.onmessage=onNet;
-  t.onclose=()=>{if(NET.conn!==t)return;NET.conn=null;NET.err=t.err;socketLost()};
+  t.onclose=()=>{if(NET.conn!==t)return;NET.conn=null;NET.err=t.err;NET.diag=t.diag||null;socketLost()};
 }
 function lostText(){
   if(NET.err==='peer-unavailable')return'❌ Игра не найдена. Проверьте код — и что создатель игры её не закрыл.';
   if(NET.via==='ws')return'❌ Нет соединения с сервером. Проверьте, что сервер запущен'+(PY_SERVER?' и устройство в той же сети.':' и адрес верный.');
   if(NET.err==='no-lib')return'❌ Не удалось загрузить модуль связи — нужен интернет.';
-  const code=' (код: '+(NET.err||'closed')+')';
-  // ответа нет совсем — почти всегда создатель свернул браузер, а не сеть виновата
-  if(NET.err==='timeout')
-    return'❌ Игра найдена, но создатель игры не отвечает. Попросите его открыть игру и не сворачивать браузер, потом нажмите «В бой!» ещё раз. Если не поможет — попробуйте другую сеть.'+code;
+  const code='\n'+diagLine();
+  if(/^ice-|timeout|no-answer/.test(NET.err||''))return'❌ '+whyText()+' Нажмите «В бой!», чтобы попробовать ещё раз.'+code;
   if(/^ice-|timeout|negotiation/.test(NET.err||''))
     return'❌ Игра найдена, но сеть не пропустила соединение между устройствами. Попробуйте другую сеть (например, Wi-Fi вместо мобильного интернета).'+code;
   if(/network|server-error|socket|no-signal/.test(NET.err||''))return'❌ Нет связи с сервером знакомств (PeerJS) — проверьте интернет.'+code;
@@ -1722,14 +1743,26 @@ const JOIN_WAIT=120e3;
 function joinRetry(){
   const j=joinTry;
   if(!j||j.seq!==NET.createSeq||NET.token||NET.conn)return false;
-  if(Date.now()-j.started>JOIN_WAIT||!/^ice-|timeout|negotiation|peer-unavailable|closed|server|socket|network/.test(NET.err||'closed')){joinTry=null;return false}
+  if(Date.now()-j.started>JOIN_WAIT||!/^ice-|timeout|no-answer|negotiation|peer-unavailable|closed|server|socket|network/.test(NET.err||'closed')){joinTry=null;return false}
   j.n++;
   const sec=Math.round((Date.now()-j.started)/1000);
-  netStatus((NET.err==='peer-unavailable'?'⏳ Игра '+j.first.game_id+' пока не отвечает':'⏳ Создатель игры не отвечает')+
-    ' — наверное, свернул браузер. Ждём, пока он вернётся в игру… ('+sec+' с)'+(sameDeviceHost(j.first.game_id)?
+  netStatus('⏳ '+whyText()+' Пробуем ещё… ('+sec+' с, попытка '+j.n+')\n'+diagLine()+(sameDeviceHost(j.first.game_id)?
     '\n⚠️ Похоже, игра создана на этом же устройстве. На телефоне вкладка создателя засыпает, когда открываешь другую, — открой ссылку на другом телефоне или компьютере.':''));
   setTimeout(()=>{if(joinTry===j&&j.seq===NET.createSeq&&!NET.conn&&!NET.token)openSocket(j.first)},2000);
   return true;
+}
+// почему не соединились — по тому, что видел гость
+function whyText(){
+  const e=NET.err||'',d=NET.diag;
+  if(e==='peer-unavailable')return'Игра не найдена: создатель её закрыл или его браузер потерял связь с интернетом.';
+  if(e==='no-answer')return'Создатель игры не ответил — его браузер свёрнут, «уснул» или потерял интернет.';
+  if(/^ice-|timeout/.test(e)&&d&&d.answered)
+    return'Создатель ответил, но устройства не смогли проложить путь друг к другу'+(d.types.includes('relay')?'.':' — ретранслятор (TURN) недоступен в этой сети.');
+  return'Нет связи с создателем игры.';
+}
+function diagLine(){
+  const d=NET.diag;
+  return'🔧 код: '+(NET.err||'closed')+(d?' · ответ: '+(d.answered?'да':'нет')+' · пути: '+(d.types.join(', ')||'нет')+' · ICE: '+d.ice:'');
 }
 function sameDeviceHost(gid){try{const h=JSON.parse(lsGet(HOST_KEY)||'null');return !!(h&&h.game&&h.game.id===gid&&Date.now()-h.ts<6*3600e3)}catch(e){return false}}
 // --- этапы меню: боец → режим → правила на фоне арены → «В бой!» ---
@@ -1815,6 +1848,7 @@ function renderLobby(){
     (leader?'Отправь друзьям код или ссылку. Игра начнётся сама, когда все места займут, или нажми «Начать»'+(bots?' — свободные места займут боты.':'.'):'Ждём игроков. Начать может создатель игры.'):'Все на месте!';
   // пока создатель в другом приложении, его телефон «замораживает» игру — гости не подключатся
   $('hostTip').style.display=NET.host&&NET.via==='p2p'&&free?'':'none';
+  renderHostTries();
 }
 function applySlots(m){
   NET.slots=m.slots||NET.slots;NET.leader=m.leader;
