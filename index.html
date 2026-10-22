@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#10151f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ножи">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>Ножи</title>
+<style>
+:root{--bg:#10151f;--panel:#1b2232;--panel2:#2a3350;--text:#eef1f7;--muted:#9aa4bb;--blue:#3b8fe0;--red:#e0503b;--green:#2fb36d;--gold:#ffcf4a}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;-webkit-text-size-adjust:100%}
+body{-webkit-tap-highlight-color:transparent}
+.screen{display:none;padding:12px max(14px,env(safe-area-inset-right)) 24px max(14px,env(safe-area-inset-left));max-width:1240px;margin:0 auto;text-align:center}
+.screen.active{display:block}
+h1{font-size:clamp(30px,7vw,44px);margin:12px 0 4px}
+.sub{color:var(--muted);margin:0 0 12px}
+.card{background:var(--panel);border-radius:12px;padding:14px 16px;margin:12px auto;max-width:640px;text-align:left}
+.card h3{margin:0 0 10px;font-size:16px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row.center{justify-content:center}
+.grid{display:flex;flex-wrap:wrap;gap:10px 14px}
+.grid label,.lbl{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:13px}
+.btn{padding:11px 18px;font-size:16px;border:0;border-radius:10px;cursor:pointer;color:#fff;background:var(--panel2);font-weight:600;touch-action:manipulation;font-family:inherit}
+.btn:hover{filter:brightness(1.15)}
+.btn:disabled{opacity:.4;cursor:default;filter:none}
+.b-blue{background:var(--blue)}.b-red{background:var(--red)}.b-green{background:var(--green)}
+.btn.big{font-size:17px;padding:14px 18px;flex:1 1 200px}
+select,input[type=text]{padding:10px 12px;border-radius:10px;border:1px solid #3a4560;background:#0e1422;color:var(--text);font-size:16px;font-family:inherit}
+label.chk{display:inline-flex;gap:8px;align-items:center;margin-right:16px;cursor:pointer;padding:4px 0}
+label.chk input{width:20px;height:20px}
+.rules{color:var(--muted);font-size:14px;line-height:1.55;margin:0;padding-left:18px}
+.rules b{color:var(--text)}
+#netStatus{color:var(--muted);font-size:13px;margin-top:8px;min-height:16px;word-break:break-word}
+#serverInfo{color:var(--muted);font-size:13px;margin-bottom:10px}
+.fighter{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+#preview{width:150px;height:150px;flex:none;background:radial-gradient(circle,#2f4a33 0,#22352a 70%);border-radius:50%}
+.fcol{flex:1 1 240px;display:flex;flex-direction:column;gap:10px}
+.swatches{display:flex;flex-wrap:wrap;gap:6px}
+.sw{width:30px;height:30px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0}
+.sw.on{border-color:#fff}
+.row2{display:flex;gap:10px;flex-wrap:wrap}.row2 .lbl{flex:1 1 130px}.row2 select{width:100%}
+#progress{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px 12px;font-size:13px;color:var(--muted)}
+#progress .ok{color:var(--text)}
+#progress .stat{grid-column:1/-1;color:var(--text);margin-bottom:4px}
+#gameIdBox{font-size:clamp(28px,8vw,40px);letter-spacing:5px;color:var(--gold);font-weight:800;background:#0e1422;padding:10px 20px;border-radius:12px;display:inline-block;margin:6px 0}
+#joinLink{font-size:15px;background:#0e1422;border-radius:10px;padding:10px 12px;margin:8px auto;max-width:560px;word-break:break-all;-webkit-user-select:all;user-select:all}
+#slotList{max-width:460px;margin:12px auto;text-align:left}
+.slot{display:flex;align-items:center;gap:10px;background:var(--panel);border-radius:10px;padding:9px 12px;margin:5px 0}
+.slot .dot{width:14px;height:14px;border-radius:50%;flex:none}
+.slot .nm{flex:1;font-weight:600}
+.slot .st{color:var(--muted);font-size:13px}
+
+/* ---- Игровой экран: весь экран — поле ---- */
+#game.active{position:fixed;inset:0;max-width:none;margin:0;padding:0;background:#0b0f0b;touch-action:none;overscroll-behavior:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overflow:hidden}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#topBtns{position:absolute;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));display:flex;gap:6px;z-index:3}
+.ibtn{--s:clamp(36px,7vmin,46px);width:var(--s);height:var(--s);border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(10,14,24,.55);color:#fff;
+  font-size:calc(var(--s)*.45);padding:0;cursor:pointer;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);touch-action:manipulation;font-family:inherit}
+#btnDash{position:absolute;right:max(18px,calc(env(safe-area-inset-right) + 12px));bottom:max(18px,calc(env(safe-area-inset-bottom) + 12px));z-index:3;
+  --s:clamp(72px,17vmin,104px);width:var(--s);height:var(--s);border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(255,190,40,.35);
+  color:#fff;font-size:calc(var(--s)*.42);display:none;touch-action:none;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+#btnDash.cd{background:rgba(60,60,70,.45)}
+body.touch #btnDash{display:block}
+#emotes{position:absolute;top:calc(max(8px,env(safe-area-inset-top)) + 54px);right:max(8px,env(safe-area-inset-right));z-index:4;display:none;flex-direction:column;gap:5px;
+  background:rgba(10,14,24,.85);padding:8px;border-radius:12px}
+#emotes.show{display:flex}
+#emotes button{font-size:15px;padding:8px 12px;text-align:left}
+#roundEnd,#pauseBox{position:absolute;inset:0;z-index:5;display:none;align-items:center;justify-content:center;background:rgba(5,8,14,.55);padding:12px}
+#roundEnd.show,#pauseBox.show{display:flex}
+.rebox{background:rgba(27,34,50,.96);border-radius:16px;padding:16px 18px;max-width:520px;width:100%;max-height:100%;overflow:auto;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.rebox h2{margin:2px 0 4px;font-size:clamp(22px,5vw,30px)}
+#reTable{width:100%;border-collapse:collapse;margin:6px 0 10px;font-size:14px}
+#reTable td,#reTable th{padding:5px 6px;text-align:left;border-bottom:1px solid rgba(255,255,255,.07)}
+#reTable th{color:var(--muted);font-weight:500;font-size:12px}
+#reTable tr.me td{color:var(--gold);font-weight:700}
+#reTable .c{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+#toast{position:fixed;left:50%;top:max(14px,env(safe-area-inset-top));transform:translateX(-50%) translateY(-150%);background:rgba(27,34,50,.97);color:var(--text);
+  padding:10px 16px;border-radius:12px;z-index:20;transition:transform .3s;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.4);max-width:92vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- ============ Меню ============ -->
+<div id="menu" class="screen active">
+  <h1>🔪 Ножи</h1>
+  <p class="sub">Собирай ножи, ломай чужие и останься последним на арене</p>
+
+  <div class="card">
+    <h3>Твой боец</h3>
+    <div class="fighter">
+      <canvas id="preview" width="300" height="300"></canvas>
+      <div class="fcol">
+        <label class="lbl">Имя<input id="playerName" type="text" maxlength="14" placeholder="Игрок"></label>
+        <div class="lbl">Цвет<div id="swatches" class="swatches"></div></div>
+        <div class="row2">
+          <label class="lbl">Шапка<select id="hatSel"></select></label>
+          <label class="lbl">Ножи<select id="knifeSel"></select></label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Играть</h3>
+    <div class="row">
+      <button class="btn big b-green" id="btnSolo">🤖 Против ботов</button>
+      <button class="btn big b-blue" id="btnCreate">🌐 Создать онлайн-игру</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input id="joinId" type="text" maxlength="6" placeholder="Код игры" autocapitalize="characters" autocomplete="off" style="flex:1 1 150px;text-transform:uppercase;letter-spacing:3px">
+      <button class="btn b-red" id="btnJoin">Войти</button>
+    </div>
+    <div id="netStatus"></div>
+  </div>
+
+  <div class="card">
+    <h3>⚙️ Настройки боя</h3>
+    <div class="grid">
+      <label>Бойцов на арене<select id="optSize">
+        <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
+        <option value="8" selected>8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option></select></label>
+      <label>Боты<select id="optDiff"><option value="easy">лёгкие</option><option value="normal" selected>средние</option><option value="hard">сильные</option></select></label>
+      <label>Зона сужается<select id="optZone"><option value="fast">быстро</option><option value="normal" selected>обычно</option><option value="slow">медленно</option></select></label>
+      <label>Матч<select id="optWins"><option value="0">без конца</option><option value="3">до 3 побед</option><option value="5">до 5 побед</option></select></label>
+    </div>
+    <div style="margin-top:8px">
+      <label class="chk"><input type="checkbox" id="optBots" checked>Боты на свободных местах</label>
+      <label class="chk"><input type="checkbox" id="optPowers" checked>Бонусы</label>
+      <label class="chk"><input type="checkbox" id="optBushes" checked>Кусты</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📡 Связь для онлайн-игры</h3>
+    <div id="serverInfo"></div>
+    <div class="row"><select id="netVia" style="flex:1"><option value="p2p">Напрямую (P2P) — через интернет</option><option value="ws">Через сервер на компьютере (Wi-Fi)</option></select></div>
+    <div class="row" id="serverRow" style="margin-top:8px"><input id="serverIp" type="text" placeholder="192.168.1.5:8766" style="flex:1 1 160px"><button class="btn" id="btnSaveServer">Сохранить</button></div>
+  </div>
+
+  <div class="card"><h3>🏅 Достижения</h3><div id="progress"></div></div>
+
+  <div class="card">
+    <h3>📖 Как играть</h3>
+    <ul class="rules">
+      <li><b>Движение:</b> на телефоне веди пальцем по экрану — джойстик появится под пальцем. На компьютере — мышь или WASD / стрелки.</li>
+      <li><b>⚡ Рывок</b> — кнопка справа внизу, на компьютере — пробел или клик.</li>
+      <li>Вокруг тебя крутятся ножи. <b>Подбирай ножи</b> с земли — их станет больше, а круг шире.</li>
+      <li><b>Нож о нож</b> — оба теряют по ножу. <b>Нож по телу</b> — соперник выбывает и роняет все свои ножи.</li>
+      <li><b>Зона сужается.</b> Снаружи ножи тают, а без ножей там не продержаться.</li>
+      <li><b>Кусты</b> прячут: издалека тебя не видно.</li>
+      <li><b>Бонусы:</b> ⚡ скорость, 🛡️ щит (выдержит один удар), 🧲 магнит, 🌀 ярость (ножи крутятся вдвое быстрее), 🔪 +5 ножей.</li>
+      <li>Последний выживший выигрывает раунд. Достижения открывают шапки и ножи.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ Комната ============ -->
+<div id="lobby" class="screen">
+  <h1>🔪 Комната</h1>
+  <div class="sub">Код игры</div>
+  <div id="gameIdBox">------</div>
+  <div id="linkBox">
+    <div id="joinLink"></div>
+    <div class="row center"><button class="btn b-blue" id="btnCopy">📋 Копировать ссылку</button><button class="btn" id="btnShare">📤 Поделиться</button></div>
+  </div>
+  <p class="sub" style="margin-top:10px">Связь: <span id="serverShow"></span></p>
+  <div id="slotList"></div>
+  <p class="sub" id="lobbyHint"></p>
+  <div class="row center"><button class="btn big b-green" id="btnStart">▶ Начать</button><button class="btn big" id="btnLobbyBack">← В меню</button></div>
+</div>
+
+<!-- ============ Бой ============ -->
+<div id="game" class="screen">
+  <canvas id="cv"></canvas>
+  <div id="topBtns">
+    <button class="ibtn" id="btnPause" title="Пауза">⏸</button>
+    <button class="ibtn" id="btnEmote" title="Фразы">💬</button>
+    <button class="ibtn" id="btnSound" title="Звук">🔊</button>
+    <button class="ibtn" id="btnFull" title="Во весь экран">⛶</button>
+    <button class="ibtn" id="btnExit" title="Выйти">✖</button>
+  </div>
+  <div id="emotes"></div>
+  <button id="btnDash">⚡</button>
+  <div id="roundEnd"><div class="rebox">
+    <h2 id="reTitle"></h2>
+    <div id="reSub" class="sub"></div>
+    <table id="reTable"></table>
+    <div id="reNext" class="sub"></div>
+    <div class="row center"><button class="btn b-green" id="btnRestart">🔁 Новый матч</button><button class="btn" id="btnReMenu">В меню</button><button class="btn" id="btnReHide">👀 Смотреть</button></div>
+  </div></div>
+  <div id="pauseBox"><div class="rebox">
+    <h2>⏸ Пауза</h2>
+    <div class="row center"><button class="btn b-green" id="btnResume">▶ Продолжить</button><button class="btn" id="btnPauseMenu">В меню</button></div>
+  </div></div>
+</div>
+<div id="toast"></div>
+
+<script src="room.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const RULES=KnivesHub.rules;
+const {orbitR,speedOf,BODY_R,SPIN,DASH_T,DASH_CD,DASH_MUL,SPEED_MUL,MAGNET_R}=RULES;
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+function clamp(v,a,b){return v<a?a:v>b?b:v}
+function lerp(a,b,t){return a+(b-a)*t}
+function angLerp(a,b,t){let d=(b-a)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return a+d*t}
+function show(id){for(const s of document.querySelectorAll('.screen'))s.classList.toggle('active',s.id===id)}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+let toastT=null;
+function toast(t,ms){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),ms||2600)}
+// старые iPhone (iOS 15 и раньше) не умеют roundRect
+if(!CanvasRenderingContext2D.prototype.roundRect)CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+  r=Math.min(typeof r==='number'?r:0,w/2,h/2);
+  this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath();
+};
+const TOUCH=matchMedia('(pointer:coarse)').matches||'ontouchstart' in window;
+if(TOUCH)document.body.classList.add('touch');
+
+// ================= Внешний вид, статистика, достижения =================
+const COLORS=['#ff5d5d','#ff9f43','#ffd23f','#7bd36a','#2ec4b6','#3fa7ff','#5d6bff','#a66bff','#ff6bd6','#ececec','#a1785c','#55596b'];
+const HAT_NAMES={none:'без шапки',cap:'кепка',bandana:'бандана',pirate:'пиратская',viking:'викинг',crown:'корона',wizard:'колпак мага'};
+const KNIFE_NAMES={steel:'стальные',gold:'золотые',fire:'огненные',ice:'ледяные',rainbow:'радужные',dark:'тёмные'};
+// что открывает шапки и ножи: [показатель, сколько нужно, описание]
+const UNLOCK={
+  hat:{cap:['rounds',3,'сыграй 3 раунда'],bandana:['kills',10,'выбей 10 соперников'],pirate:['rounds',15,'сыграй 15 раундов'],
+       crown:['wins',3,'выиграй 3 раунда'],viking:['kills',60,'выбей 60 соперников'],wizard:['wins',20,'выиграй 20 раундов']},
+  knife:{gold:['wins',1,'выиграй раунд'],fire:['kills',25,'выбей 25 соперников'],ice:['maxK',50,'собери 50 ножей сразу'],
+         dark:['bestKills',5,'выбей 5 соперников за раунд'],rainbow:['wins',10,'выиграй 10 раундов']},
+};
+const STAT_KEY='knives_stats';
+let stats=Object.assign({rounds:0,wins:0,kills:0,maxK:0,bestKills:0},(()=>{try{return JSON.parse(lsGet(STAT_KEY)||'{}')}catch(e){return {}}})());
+function saveStats(){lsSet(STAT_KEY,JSON.stringify(stats))}
+function unlocked(kind,id){const u=UNLOCK[kind][id];return !u||stats[u[0]]>=u[1]}
+function unlockedList(){const s=[];for(const kind in UNLOCK)for(const id in UNLOCK[kind])if(unlocked(kind,id))s.push(kind+':'+id);return s}
+// после изменения статистики — поздравляем с открытым
+function bumpStats(fn){
+  const before=new Set(unlockedList());
+  fn();saveStats();
+  for(const k of unlockedList())if(!before.has(k)){
+    const [kind,id]=k.split(':');
+    toast('🎉 Открыто: '+(kind==='hat'?'шапка «'+HAT_NAMES[id]+'»':'ножи «'+KNIFE_NAMES[id]+'»'),3500);
+  }
+}
+let skin=(()=>{try{return JSON.parse(lsGet('knives_skin')||'null')}catch(e){return null}})()||{color:Math.floor(Math.random()*COLORS.length),hat:'none',knife:'steel'};
+function mySkin(){
+  return {color:skin.color,hat:unlocked('hat',skin.hat)?skin.hat:'none',knife:unlocked('knife',skin.knife)?skin.knife:'steel'};
+}
+function renderSkinUI(){
+  const sw=$('swatches');sw.innerHTML='';
+  COLORS.forEach((c,i)=>{
+    const b=document.createElement('button');b.className='sw'+(i===skin.color?' on':'');b.style.background=c;b.setAttribute('aria-label','Цвет '+(i+1));
+    b.onclick=()=>{skin.color=i;lsSet('knives_skin',JSON.stringify(skin));renderSkinUI()};
+    sw.append(b);
+  });
+  const fill=(sel,kind,names,cur)=>{
+    sel.innerHTML='';
+    for(const id in names){
+      const o=document.createElement('option');o.value=id;
+      const u=UNLOCK[kind][id];
+      o.textContent=unlocked(kind,id)?names[id]:'🔒 '+names[id]+' — '+u[2];
+      o.disabled=!unlocked(kind,id);
+      sel.append(o);
+    }
+    sel.value=unlocked(kind,cur)?cur:Object.keys(names)[0];
+  };
+  fill($('hatSel'),'hat',HAT_NAMES,skin.hat);
+  fill($('knifeSel'),'knife',KNIFE_NAMES,skin.knife);
+}
+$('hatSel').onchange=e=>{skin.hat=e.target.value;lsSet('knives_skin',JSON.stringify(skin))};
+$('knifeSel').onchange=e=>{skin.knife=e.target.value;lsSet('knives_skin',JSON.stringify(skin))};
+function renderProgress(){
+  const p=$('progress');
+  let h=`<div class="stat">Раундов: <b>${stats.rounds}</b> · Побед: <b>${stats.wins}</b> · Выбито: <b>${stats.kills}</b> · Рекорд ножей: <b>${stats.maxK}</b> · Лучший раунд: <b>${stats.bestKills}</b> 💀</div>`;
+  for(const kind in UNLOCK)for(const id in UNLOCK[kind]){
+    const u=UNLOCK[kind][id],ok=stats[u[0]]>=u[1];
+    h+=`<div class="${ok?'ok':''}">${ok?'✅':'🔒'} ${kind==='hat'?'🎩':'🔪'} ${esc(kind==='hat'?HAT_NAMES[id]:KNIFE_NAMES[id])} — ${esc(u[2])}${ok?'':` (${Math.min(stats[u[0]],u[1])}/${u[1]})`}</div>`;
+  }
+  p.innerHTML=h;
+  renderSkinUI();
+}
+$('playerName').value=lsGet('knives_name')||'';
+function myName(){const n=$('playerName').value.trim().slice(0,14);lsSet('knives_name',n);return n}
+
+// настройки боя запоминаются
+const OPT_IDS=['optSize','optDiff','optZone','optWins','optBots','optPowers','optBushes'];
+(function(){
+  let o=null;try{o=JSON.parse(lsGet('knives_opts')||'null')}catch(e){}
+  if(o)for(const id of OPT_IDS)if(id in o){const el=$(id);if(el.type==='checkbox')el.checked=!!o[id];else el.value=o[id]}
+})();
+function gameOpts(){
+  const o={};for(const id of OPT_IDS){const el=$(id);o[id]=el.type==='checkbox'?el.checked:el.value}
+  lsSet('knives_opts',JSON.stringify(o));
+  return {size:+o.optSize,diff:o.optDiff,zone:o.optZone,wins:+o.optWins,bots:o.optBots,powers:o.optPowers,bushes:o.optBushes};
+}
+
+// ================= Звук =================
+let AC=null,soundOn=lsGet('knives_sound')!=='0';
+function audioInit(){
+  if(AC){if(AC.state==='suspended')AC.resume().catch(()=>{});return}
+  try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){AC=null}
+}
+let noiseBuf=null;
+function noise(){
+  if(noiseBuf)return noiseBuf;
+  noiseBuf=AC.createBuffer(1,AC.sampleRate*0.5,AC.sampleRate);
+  const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  return noiseBuf;
+}
+function tone(f1,f2,dur,type,vol,delay){
+  const t=AC.currentTime+(delay||0),o=AC.createOscillator(),g=AC.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f1,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,f2),t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(AC.destination);o.start(t);o.stop(t+dur+0.02);
+}
+function hiss(dur,freq,vol,delay){
+  const t=AC.currentTime+(delay||0),s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();
+  s.buffer=noise();f.type='bandpass';f.frequency.value=freq;f.Q.value=1.2;
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  s.connect(f).connect(g).connect(AC.destination);s.start(t);s.stop(t+dur+0.02);
+}
+const lastSfx={};
+function sfx(name,vol){
+  if(!soundOn||!AC||AC.state!=='running')return;
+  vol=vol==null?1:vol;if(vol<0.04)return;
+  const now=performance.now();
+  if(lastSfx[name]&&now-lastSfx[name]<(name==='pick'?45:name==='clink'?35:0))return;
+  lastSfx[name]=now;
+  const v=0.22*vol;
+  switch(name){
+    case'clink':tone(2400+Math.random()*900,1500,0.09,'triangle',v);tone(3700,2900,0.05,'square',v*0.25);hiss(0.05,5000,v*0.8);break;
+    case'pick':tone(880,1320,0.06,'sine',v*0.45);break;
+    case'power':[660,880,1175].forEach((f,i)=>tone(f,f*1.01,0.12,'triangle',v*0.7,i*0.07));break;
+    case'kill':hiss(0.18,700,v*1.4);tone(220,55,0.3,'sine',v*1.6);break;
+    case'die':tone(440,70,0.6,'sawtooth',v*0.6);hiss(0.3,400,v);break;
+    case'dash':hiss(0.22,1600,v*0.9);break;
+    case'shield':tone(1200,300,0.25,'square',v*0.4);hiss(0.15,3000,v*0.6);break;
+    case'beep':tone(660,660,0.12,'square',v*0.5);break;
+    case'go':tone(990,990,0.25,'square',v*0.55);break;
+    case'zone':tone(330,300,0.3,'sawtooth',v*0.5);tone(330,300,0.3,'sawtooth',v*0.5,0.35);break;
+    case'win':[523,659,784,1047].forEach((f,i)=>tone(f,f,0.22,'triangle',v*0.8,i*0.12));break;
+  }
+}
+function vibrate(p){try{if(navigator.vibrate&&(!navigator.userActivation||navigator.userActivation.hasBeenActive))navigator.vibrate(p)}catch(e){}}
+function setSound(on){soundOn=on;lsSet('knives_sound',on?'1':'0');$('btnSound').textContent=on?'🔊':'🔇';if(on)audioInit()}
+
+// ================= Рисование: ножи, шапки, бойцы =================
+const KSPR={};
+const KNIFE_LEN=36,KNIFE_W=12,KNIFE_AX=22; // спрайт ножа (в единицах мира): длина, ширина, точка на орбите (середина лезвия)
+function knifeColors(kind,idx){
+  switch(kind){
+    case'gold':return {a:'#fff3b0',b:'#d19a1c',edge:'#fff8d8',h:'#3b2a1a'};
+    case'fire':return {a:'#ffe08a',b:'#ff4a1c',edge:'#fff1c2',h:'#2a1a14',glow:'rgba(255,110,30,.8)'};
+    case'ice':return {a:'#f0fdff',b:'#4cb8f5',edge:'#ffffff',h:'#1d3557',glow:'rgba(120,210,255,.7)'};
+    case'dark':return {a:'#5a5a70',b:'#15151d',edge:'#c08bff',h:'#0b0b0f',glow:'rgba(170,90,255,.6)'};
+    case'rainbow':{const h=(idx%6)*60;return {a:`hsl(${h},95%,78%)`,b:`hsl(${h},90%,48%)`,edge:'#fff',h:'#2a2a35'}}
+    default:return {a:'#f4f7fb',b:'#8d9aae',edge:'#ffffff',h:'#6b4a2b'};
+  }
+}
+function knifeSprite(kind,idx){
+  const key=kind==='rainbow'?kind+(idx%6):kind;
+  if(KSPR[key])return KSPR[key];
+  const S=4,pad=4,c=document.createElement('canvas');
+  c.width=(KNIFE_LEN+pad*2)*S;c.height=(KNIFE_W+pad*2)*S;
+  const x=c.getContext('2d');x.scale(S,S);x.translate(pad,pad);
+  const col=knifeColors(kind,idx),m=KNIFE_W/2;
+  if(col.glow){x.shadowColor=col.glow;x.shadowBlur=4}
+  // рукоять
+  x.fillStyle=col.h;x.beginPath();x.roundRect(0,m-2.6,11,5.2,2.4);x.fill();
+  x.shadowBlur=0;
+  x.fillStyle='rgba(255,255,255,.18)';x.fillRect(2,m-1.8,7,1.2);
+  // гарда
+  x.fillStyle='#c9ccd4';x.beginPath();x.roundRect(10.5,m-4.6,2.4,9.2,1);x.fill();
+  // лезвие
+  const gr=x.createLinearGradient(0,m-4,0,m+4);gr.addColorStop(0,col.a);gr.addColorStop(1,col.b);
+  if(col.glow){x.shadowColor=col.glow;x.shadowBlur=5}
+  x.fillStyle=gr;x.beginPath();
+  x.moveTo(13,m-3.6);x.lineTo(30,m-2.6);x.lineTo(KNIFE_LEN,m);x.lineTo(30,m+3.4);x.lineTo(13,m+3.6);x.closePath();x.fill();
+  x.shadowBlur=0;
+  x.strokeStyle=col.edge;x.lineWidth=0.9;x.beginPath();x.moveTo(14,m-3.2);x.lineTo(30,m-2.3);x.lineTo(KNIFE_LEN-0.5,m);x.stroke();
+  x.strokeStyle='rgba(0,0,0,.35)';x.lineWidth=0.6;x.beginPath();x.moveTo(13,m+3.6);x.lineTo(30,m+3.4);x.lineTo(KNIFE_LEN,m);x.stroke();
+  return KSPR[key]={c,pad};
+}
+function shade(hex,f){
+  const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;
+  if(f<0){r*=1+f;g*=1+f;b*=1+f}else{r+=(255-r)*f;g+=(255-g)*f;b+=(255-b)*f}
+  return`rgb(${r|0},${g|0},${b|0})`;
+}
+// ctx уже в мировых координатах; (x,y) — центр бойца
+function drawHat(ctx,hat,x,y,R){
+  ctx.save();ctx.translate(x,y-R*0.62);
+  switch(hat){
+    case'cap':
+      ctx.fillStyle='#e8433b';ctx.beginPath();ctx.ellipse(0,0,R*0.7,R*0.45,0,Math.PI,0);ctx.fill();
+      ctx.fillStyle='#b92a24';ctx.beginPath();ctx.ellipse(R*0.45,R*0.02,R*0.5,R*0.13,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,-R*0.38,R*0.08,0,Math.PI*2);ctx.fill();break;
+    case'bandana':
+      ctx.fillStyle='#2e6fe0';ctx.beginPath();ctx.ellipse(0,R*0.08,R*0.8,R*0.42,0,Math.PI,0);ctx.fill();
+      ctx.fillStyle='#fff';for(const [px,py] of [[-0.35,-0.15],[0.1,-0.25],[0.4,-0.05]]){ctx.beginPath();ctx.arc(px*R,py*R,R*0.06,0,Math.PI*2);ctx.fill()}
+      ctx.fillStyle='#2e6fe0';ctx.beginPath();ctx.moveTo(-R*0.75,0);ctx.lineTo(-R*1.15,-R*0.1);ctx.lineTo(-R*1.05,R*0.25);ctx.closePath();ctx.fill();break;
+    case'pirate':
+      ctx.fillStyle='#1b1b22';ctx.beginPath();ctx.moveTo(-R*0.95,R*0.1);ctx.quadraticCurveTo(0,-R*0.95,R*0.95,R*0.1);ctx.quadraticCurveTo(0,-R*0.1,-R*0.95,R*0.1);ctx.fill();
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,-R*0.28,R*0.13,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#d4a017';ctx.fillRect(-R*0.9,R*0.02,R*1.8,R*0.07);break;
+    case'viking':
+      ctx.fillStyle='#f1e6c8';
+      for(const s of [-1,1]){ctx.beginPath();ctx.moveTo(s*R*0.5,-R*0.05);ctx.quadraticCurveTo(s*R*1.15,-R*0.2,s*R*1.05,-R*0.85);ctx.quadraticCurveTo(s*R*0.85,-R*0.35,s*R*0.35,-R*0.25);ctx.fill()}
+      ctx.fillStyle='#8a8f99';ctx.beginPath();ctx.ellipse(0,R*0.05,R*0.68,R*0.48,0,Math.PI,0);ctx.fill();
+      ctx.fillStyle='#6a6f79';ctx.fillRect(-R*0.68,R*0.0,R*1.36,R*0.12);break;
+    case'crown':
+      ctx.fillStyle='#ffd23f';ctx.strokeStyle='#b88a00';ctx.lineWidth=R*0.06;ctx.beginPath();
+      ctx.moveTo(-R*0.6,R*0.12);ctx.lineTo(-R*0.65,-R*0.45);ctx.lineTo(-R*0.3,-R*0.15);ctx.lineTo(0,-R*0.6);ctx.lineTo(R*0.3,-R*0.15);ctx.lineTo(R*0.65,-R*0.45);ctx.lineTo(R*0.6,R*0.12);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.fillStyle='#e8433b';ctx.beginPath();ctx.arc(0,-R*0.05,R*0.09,0,Math.PI*2);ctx.fill();break;
+    case'wizard':
+      ctx.fillStyle='#5b3cc4';ctx.beginPath();ctx.moveTo(-R*0.7,R*0.12);ctx.lineTo(R*0.15,-R*1.25);ctx.lineTo(R*0.7,R*0.12);ctx.closePath();ctx.fill();
+      ctx.fillStyle='#ffd23f';for(const [px,py] of [[-0.15,-0.2],[0.2,-0.55],[0.05,-0.85]]){ctx.beginPath();ctx.arc(px*R,py*R,R*0.07,0,Math.PI*2);ctx.fill()}
+      ctx.fillStyle='#4a2fa8';ctx.beginPath();ctx.ellipse(0,R*0.12,R*0.85,R*0.16,0,0,Math.PI*2);ctx.fill();break;
+  }
+  ctx.restore();
+}
+// один нож: в мировых координатах (wx,wy), угол ang
+function drawKnife(ctx,cam,spr,wx,wy,ang,scale){
+  const s=cam.s*cam.dpr*(scale||1),c=Math.cos(ang)*s,n=Math.sin(ang)*s;
+  ctx.setTransform(c,n,-n,c,((wx-cam.x)*cam.s+cam.w/2)*cam.dpr,((wy-cam.y)*cam.s+cam.h/2)*cam.dpr);
+  ctx.drawImage(spr.c,-KNIFE_AX-spr.pad,-KNIFE_W/2-spr.pad,KNIFE_LEN+spr.pad*2,KNIFE_W+spr.pad*2);
+}
+function setWorld(ctx,cam){
+  const s=cam.s*cam.dpr;
+  ctx.setTransform(s,0,0,s,(cam.w/2-cam.x*cam.s)*cam.dpr,(cam.h/2-cam.y*cam.s)*cam.dpr);
+}
+function drawKnives(ctx,cam,f,knife,now){
+  if(f.k<=0)return;
+  const R=orbitR(f.k),st=Math.PI*2/f.k;
+  for(let i=0;i<f.k;i++){
+    const a=f.rot+i*st;
+    drawKnife(ctx,cam,knifeSprite(knife,i),f.x+Math.cos(a)*R,f.y+Math.sin(a)*R,a+0.35);
+  }
+  setWorld(ctx,cam);
+}
+function drawBody(ctx,f,sk,now){
+  const R=BODY_R,col=COLORS[sk.color]||COLORS[0];
+  // тень
+  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(f.x+3,f.y+7,R*0.95,R*0.7,0,0,Math.PI*2);ctx.fill();
+  const gr=ctx.createRadialGradient(f.x-R*0.35,f.y-R*0.4,R*0.2,f.x,f.y,R);
+  gr.addColorStop(0,shade(col,0.35));gr.addColorStop(1,col);
+  ctx.fillStyle=gr;ctx.strokeStyle=shade(col,-0.35);ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(f.x,f.y,R,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // глаза смотрят туда, куда идёт боец
+  const fx=Math.cos(f.face),fy=Math.sin(f.face);
+  for(const s of [-1,1]){
+    const ex=f.x+fx*R*0.35-fy*s*R*0.36,ey=f.y+fy*R*0.35+fx*s*R*0.36;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ex,ey,R*0.24,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#1b1b22';ctx.beginPath();ctx.arc(ex+fx*R*0.1,ey+fy*R*0.1,R*0.12,0,Math.PI*2);ctx.fill();
+  }
+  if(sk.hat&&sk.hat!=='none')drawHat(ctx,sk.hat,f.x,f.y,R);
+}
+
+// превью бойца в меню
+function drawPreview(now){
+  const c=$('preview'),ctx=c.getContext('2d'),sk=mySkin(),k=12;
+  const cam={x:0,y:0,s:c.width/2/(orbitR(k)+30)/1,w:c.width,h:c.height,dpr:1};
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,c.width,c.height);
+  setWorld(ctx,cam);
+  const f={x:0,y:0,k,rot:now/1000*SPIN*0.6,face:Math.sin(now/900)*0.8+Math.PI/2};
+  drawKnives(ctx,cam,f,sk.knife,now);
+  drawBody(ctx,f,sk,now);
+}
+
+// ================= Состояние боя на этом устройстве =================
+// G — текущий раунд: бойцы (из снимков комнаты), ножи на земле, частицы, камера.
+let G=null;
+let mode=null; // 'online' | 'solo'
+const INTERP=110; // показываем чужих бойцов чуть «в прошлом», чтобы движение было плавным
+const EMOTES=['👋 Привет!','😂','😡','😱','👍','💪 Иду за тобой!','🏃 Беги!','🤝 Мир?','GG'];
+const POWER_INFO={S:['⚡','#ffd23f','Скорость'],H:['🛡️','#4cb8f5','Щит'],M:['🧲','#ff5d7a','Магнит'],R:['🌀','#a66bff','Ярость'],B:['🔪','#7bd36a','+5 ножей']};
+
+function bushBlobs(b){
+  // куст — несколько кругов, расположение зависит от координат (у всех одинаково)
+  let s=(b[0]*73856093^b[1]*19349663)>>>0;const r=()=>(s=(s*1664525+1013904223)>>>0)/4294967296;
+  const out=[{x:b[0],y:b[1],r:b[2]*0.8}];
+  const n=4+Math.floor(r()*3);
+  for(let i=0;i<n;i++){const a=i/n*Math.PI*2+r()*0.6,d=b[2]*(0.35+r()*0.25);out.push({x:b[0]+Math.cos(a)*d,y:b[1]+Math.sin(a)*d,r:b[2]*(0.42+r()*0.18)})}
+  return out;
+}
+function slotOf(i){const sid=G&&G.order[i];return sid&&NET.slots[sid]||null}
+function nameOf(i){const s=slotOf(i);if(!s)return'?';if(s.kind==='bot'&&s.away)return(s.name||'Игрок')+' (бот)';return s.name||(s.kind==='bot'?'Бот':'Игрок')}
+function skinOf(i){const s=slotOf(i);return s&&s.skin||{color:0,hat:'none',knife:'steel'}}
+function colorOf(i){return COLORS[skinOf(i).color]||COLORS[0]}
+
+function initRound(m){
+  const order=m.order||[];
+  G={round:m.round,R:m.R,order,
+    bushes:(m.bushes||[]).map(b=>({x:b[0],y:b[1],r:b[2],blobs:bushBlobs(b)})),
+    f:order.map((sid,i)=>({i,sid,x:0,y:0,k:0,rot:0,flags:1,face:0,alive:true,kills:(m.kills||{})[i]||0,emote:null,emoteT:0,seen:false})),
+    pk:new Map(),snaps:[],off:null,last:null,lastAt:0,phase:m.phase,phaseT:m.phaseT,z:m.z,
+    parts:[],texts:[],feed:[],flyPk:[],standings:m.standings||null,winner:m.winner||null,
+    myI:order.indexOf(NET.slot),pred:null,hist:[],dashT:0,dashCd:0,spec:-1,cam:null,shake:0,
+    banner:null,deathInfo:null,lastBeep:-1,score:m.score||{},matchOver:!!m.match_over,opts:m.opts||{}};
+  for(const p of m.pk||[])G.pk.set(p[0],{id:p[0],x:p[1],y:p[2],t:p[3],born:-1e9});
+  applySnap({t:m.t,p:m.p,z:m.z,ph:m.phase,pt:Math.round((m.phaseT||0)*10)},true);
+  for(const f of G.f){const a=G.last.get(f.i);if(a&&!(a[5]&1))f.alive=false}
+  $('roundEnd').classList.remove('show');$('emotes').classList.remove('show');
+  reHidden=false;
+  if(m.phase==='end'&&m.standings)showRoundEnd({winner:m.winner,standings:m.standings,score:m.score,match_over:m.match_over,round:m.round});
+  updatePauseBtn();
+}
+
+function applySnap(m,initial){
+  const now=performance.now();
+  const o=now-m.t;
+  if(G.off==null||o<G.off)G.off=o;else G.off+=(o-G.off)*0.02; // разница часов: берём самую быструю доставку
+  const map=new Map();for(const a of m.p||[])map.set(a[0],a);
+  G.snaps.push({t:m.t,map});if(G.snaps.length>40)G.snaps.shift();
+  G.last=map;G.lastAt=now;G.lastT=m.t;
+  const prevPhase=G.phase;
+  G.phase=m.ph;G.phaseT=(m.pt||0)/10;G.z=m.z;
+  if(!initial&&prevPhase!=='play'&&G.phase==='play'){G.pred=null;G.hist=[]}
+  for(const p of m.add||[])G.pk.set(p[0],{id:p[0],x:p[1],y:p[2],t:p[3],born:now});
+  for(const d of m.del||[]){
+    const p=G.pk.get(d[0]);if(!p)continue;
+    G.pk.delete(d[0]);
+    G.flyPk.push({x:p.x,y:p.y,t:p.t,to:d[1],life:0.22,max:0.22});
+    if(d[1]===G.myI&&p.t==='k')sfx('pick',0.8);
+  }
+  for(const e of m.ev||[])onEvent(e);
+  // своё положение: сравниваем с тем, где мы были «пинг назад», и мягко поправляем
+  const me=G.myI>=0?map.get(G.myI):null;
+  if(G.pred&&me&&(me[5]&1)&&G.phase==='play'){
+    const t=now-NET.rtt;
+    let h=null;for(let i=G.hist.length-1;i>=0;i--){if(G.hist[i].t<=t){h=G.hist[i];break}}
+    if(!h)h=G.hist[0]||G.pred;
+    const ex=me[1]-h.x,ey=me[2]-h.y;
+    if(Math.hypot(ex,ey)>220){G.pred={x:me[1],y:me[2]};G.hist=[]}
+    else{const cx=ex*0.3,cy=ey*0.3;G.pred.x+=cx;G.pred.y+=cy;for(const q of G.hist){q.x+=cx;q.y+=cy}}
+  }
+  if(me&&me[3]>stats.maxK&&mode){const k=me[3];bumpStats(()=>{stats.maxK=k})}
+}
+
+function fpos(i){
+  const f=G.f[i];
+  if(f&&f.seen)return f;
+  const a=G.last&&G.last.get(i);return a?{x:a[1],y:a[2]}:{x:0,y:0};
+}
+function hearVol(x,y){
+  const c=G.cam;if(!c)return 1;
+  const d=Math.hypot(x-c.x,y-c.y);return clamp(1-d/(900/Math.min(1,c.s*1.4)),0,1);
+}
+function onEvent(e){
+  const now=performance.now();
+  switch(e[0]){
+    case'c':{ // ножи столкнулись
+      const [,x,y,a,b]=e;
+      for(let i=0;i<10;i++)addPart(x,y,{v:220,life:0.35,col:i%2?'#fff6c8':'#ffd23f',size:2.5,drag:4});
+      sfx('clink',hearVol(x,y));
+      if(a===G.myI||b===G.myI){G.shake=Math.max(G.shake,5);vibrate(12)}
+      break;}
+    case'x':{ // выбит боец
+      const [,ki,vi,x,y]=e,col=colorOf(vi);
+      const v=G.f[vi];if(v){v.alive=false;v.k=0}
+      for(let i=0;i<26;i++)addPart(x,y,{v:320,life:0.7,col:i%3?col:'#ffffff',size:4,drag:3});
+      addPart(x,y,{ring:true,life:0.45,col:'#fff',size:BODY_R});
+      if(ki>=0&&G.f[ki])G.f[ki].kills++;
+      G.feed.push({t:now,text:(ki>=0?nameOf(ki)+' 🔪 ':'☠️ зона — ')+nameOf(vi),ki,vi});
+      if(G.feed.length>5)G.feed.shift();
+      if(vi===G.myI){
+        sfx('die');vibrate([60,40,160]);G.shake=14;
+        const alive=G.f.filter(f=>f.alive).length;
+        G.deathInfo={by:ki,place:alive+1};
+        G.spec=ki>=0?ki:-1;
+      }else if(ki===G.myI){
+        sfx('kill');vibrate(40);G.shake=Math.max(G.shake,7);
+        addText(x,y-30,'💀 +1','#ffd23f',1.2,1.3);
+        bumpStats(()=>{stats.kills++});
+      }else sfx('kill',hearVol(x,y)*0.6);
+      break;}
+    case'h':{ // щит выдержал удар
+      const p=fpos(e[1]);
+      addPart(p.x,p.y,{ring:true,life:0.4,col:'#7fd8ff',size:BODY_R+10});
+      sfx('shield',hearVol(p.x,p.y));
+      if(e[1]===G.myI){addText(p.x,p.y-40,'🛡️ Щит спас!','#7fd8ff',1.2);vibrate(30)}
+      break;}
+    case'p':{ // бонус
+      const p=fpos(e[1]),info=POWER_INFO[e[2]];
+      if(info&&(e[1]===G.myI||hearVol(p.x,p.y)>0.3))addText(p.x,p.y-42,info[0]+' '+info[2],info[1],1.3);
+      if(e[1]===G.myI)sfx('power');
+      break;}
+    case'd':{ // рывок
+      const p=fpos(e[1]);
+      for(let i=0;i<8;i++)addPart(p.x,p.y+BODY_R*0.6,{v:120,life:0.35,col:'rgba(230,230,210,.8)',size:5,drag:5});
+      if(e[1]!==G.myI)sfx('dash',hearVol(p.x,p.y)*0.6);
+      break;}
+    case'z':G.banner={t:now,text:'⚠️ Зона сужается!',col:'#ff7a8a'};sfx('zone');break;
+    case'go':G.banner={t:now,text:'В бой!',col:'#ffd23f'};sfx('go');break;
+  }
+}
+function addPart(x,y,o){
+  const a=Math.random()*Math.PI*2,v=(o.v||0)*(0.3+Math.random()*0.7);
+  G.parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:o.life,max:o.life,col:o.col,size:o.size||3,drag:o.drag||2,ring:!!o.ring});
+  if(G.parts.length>500)G.parts.splice(0,G.parts.length-500);
+}
+function addText(x,y,text,col,life,size){G.texts.push({x,y,text,col,life:life||1,max:life||1,size:size||1})}
+
+// ================= Управление =================
+const keys=new Set();
+let mouse=null,joy=null,inputSent={a:0,m:0,at:0};
+const KEYMAP={KeyW:'u',ArrowUp:'u',KeyS:'d',ArrowDown:'d',KeyA:'l',ArrowLeft:'l',KeyD:'r',ArrowRight:'r'};
+addEventListener('keydown',e=>{
+  if(!$('game').classList.contains('active'))return;
+  if(KEYMAP[e.code]){keys.add(KEYMAP[e.code]);mouse=null;e.preventDefault()} // играют с клавиатуры — мышь не ведёт
+  else if(e.code==='Space'||e.code==='ShiftLeft'||e.code==='ShiftRight'){doDash();e.preventDefault()}
+  else if(e.code==='Escape'&&mode==='solo')setPaused(!soloPaused());
+  else if(e.code==='Tab'&&G&&G.myI>=0&&!G.f[G.myI].alive){nextSpec();e.preventDefault()}
+  else if(/^Digit[1-9]$/.test(e.code)){sendEmote(+e.code.slice(5)-1)}
+});
+addEventListener('keyup',e=>{if(KEYMAP[e.code])keys.delete(KEYMAP[e.code])});
+addEventListener('blur',()=>{keys.clear();joy=null});
+const cv=$('cv');
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+  audioInit();
+  $('emotes').classList.remove('show');
+  if(e.pointerType==='mouse'){
+    mouse={x:e.clientX,y:e.clientY,at:performance.now()};
+    if(spectating())nextSpec();else doDash();
+    return;
+  }
+  if(spectating()){nextSpec();return}
+  if(!joy){joy={id:e.pointerId,bx:e.clientX,by:e.clientY,x:e.clientX,y:e.clientY};try{cv.setPointerCapture(e.pointerId)}catch(_){}}
+  else doDash(); // второй палец — рывок
+  e.preventDefault();
+});
+cv.addEventListener('pointermove',e=>{
+  if(e.pointerType==='mouse'){mouse={x:e.clientX,y:e.clientY,at:performance.now()};return}
+  if(joy&&joy.id===e.pointerId){
+    joy.x=e.clientX;joy.y=e.clientY;
+    // джойстик «едет» за пальцем, если тянуть дальше края
+    const dx=joy.x-joy.bx,dy=joy.y-joy.by,l=Math.hypot(dx,dy),max=joyR();
+    if(l>max){joy.bx=joy.x-dx/l*max;joy.by=joy.y-dy/l*max}
+  }
+});
+const endJoy=e=>{if(joy&&joy.id===e.pointerId)joy=null};
+cv.addEventListener('pointerup',endJoy);cv.addEventListener('pointercancel',endJoy);
+function joyR(){return clamp(Math.min(innerWidth,innerHeight)*0.11,40,70)}
+$('btnDash').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();audioInit();doDash()});
+function spectating(){return G&&G.phase==='play'&&!(G.myI>=0&&G.f[G.myI].alive)}
+
+function curInput(){
+  let x=0,y=0;
+  if(keys.has('u'))y--;if(keys.has('d'))y++;if(keys.has('l'))x--;if(keys.has('r'))x++;
+  if(x||y)return {a:Math.atan2(y,x),m:1};
+  if(joy){
+    const dx=joy.x-joy.bx,dy=joy.y-joy.by,l=Math.hypot(dx,dy);
+    return {a:Math.atan2(dy,dx),m:l<8?0:Math.min(1,l/joyR())};
+  }
+  if(mouse&&G&&G.cam&&G.myI>=0){
+    const me=myPos();if(!me)return {a:0,m:0};
+    const sx=(me.x-G.cam.x)*G.cam.s+G.cam.w/2,sy=(me.y-G.cam.y)*G.cam.s+G.cam.h/2;
+    const dx=mouse.x-sx,dy=mouse.y-sy,l=Math.hypot(dx,dy);
+    return {a:Math.atan2(dy,dx),m:l<BODY_R*G.cam.s?0:Math.min(1,(l-BODY_R*G.cam.s)/90+0.35)};
+  }
+  return {a:inputSent.a,m:0};
+}
+function myPos(){if(!G||G.myI<0)return null;return G.f[G.myI]}
+function doDash(){
+  if(!G||G.phase!=='play'||G.myI<0||!G.f[G.myI].alive)return;
+  if(G.dashCd>0)return;
+  G.dashT=DASH_T;G.dashCd=DASH_CD;
+  sfx('dash',0.8);
+  const i=curInput();
+  netSend({action:'input',a:+i.a.toFixed(3),m:+i.m.toFixed(2),d:1});
+  inputSent={a:i.a,m:i.m,at:performance.now()};
+}
+function sendInput(now){
+  if(!G||G.myI<0)return;
+  const i=curInput();
+  const da=Math.abs(angLerp(inputSent.a,i.a,1)-inputSent.a),changed=Math.abs(i.m-inputSent.m)>0.08||(i.m>0&&da>0.04);
+  if((changed&&now-inputSent.at>33)||now-inputSent.at>200){
+    netSend({action:'input',a:+i.a.toFixed(3),m:+i.m.toFixed(2)});
+    inputSent={a:i.a,m:i.m,at:now};
+  }
+}
+function nextSpec(){
+  if(!G)return;
+  const alive=G.f.filter(f=>f.alive).map(f=>f.i);
+  if(!alive.length)return;
+  const k=alive.indexOf(G.spec);
+  G.spec=alive[(k+1)%alive.length];
+}
+
+// своё движение считаем сразу, не дожидаясь комнаты
+function predict(dt,now){
+  const me=G.myI>=0&&G.last?G.last.get(G.myI):null;
+  G.dashT=Math.max(0,G.dashT-dt);G.dashCd=Math.max(0,G.dashCd-dt);
+  if(!me||!(me[5]&1)||G.phase!=='play'){G.pred=null;G.hist=[];return}
+  if(!G.pred){G.pred={x:me[1],y:me[2]};G.hist=[]}
+  const inp=curInput();
+  let m=inp.m,a=inp.a;
+  const f=G.f[G.myI];
+  if(G.dashT>0&&m<0.3){m=1;a=f.face}
+  const sp=speedOf(me[3])*(me[5]&4?SPEED_MUL:1)*(G.dashT>0?DASH_MUL:1)*m;
+  G.pred.x+=Math.cos(a)*sp*dt;G.pred.y+=Math.sin(a)*sp*dt;
+  const d=Math.hypot(G.pred.x,G.pred.y),lim=G.R-BODY_R;
+  if(d>lim){G.pred.x*=lim/d;G.pred.y*=lim/d}
+  if(m>0.05)G.myFace=a;
+  G.hist.push({t:now,x:G.pred.x,y:G.pred.y});
+  while(G.hist.length&&now-G.hist[0].t>1500)G.hist.shift();
+}
+// чужие бойцы — между двумя снимками
+function interpolate(now){
+  const rt=now-G.off-INTERP;
+  let a=null,b=null;
+  for(let i=G.snaps.length-1;i>=0;i--){if(G.snaps[i].t<=rt){a=G.snaps[i];b=G.snaps[i+1]||null;break}}
+  if(!a){a=G.snaps[0];b=null}
+  const t=b?clamp((rt-a.t)/(b.t-a.t),0,1):0;
+  const sinceLast=(now-G.lastAt)/1000;
+  for(const f of G.f){
+    const pa=a.map.get(f.i),pb=b?b.map.get(f.i):null,pl=G.last.get(f.i);
+    if(!pa&&!pl)continue;
+    if(f.i===G.myI&&pl){
+      // своё: позиция — предсказанная, ножи — по последнему снимку
+      f.k=pl[3];f.flags=pl[5];f.alive=!!(pl[5]&1);
+      const spin=SPIN*(pl[5]&16?2:1);
+      f.rot=pl[4]/1000+spin*Math.min(0.25,sinceLast);
+      if(G.pred){f.x=G.pred.x;f.y=G.pred.y;if(G.myFace!=null)f.face=G.myFace}
+      else{f.x=pl[1];f.y=pl[2];f.face=pl[6]/100}
+      f.seen=true;
+      continue;
+    }
+    const A=pa||pl,B=pb||A;
+    f.x=lerp(A[1],B[1],t);f.y=lerp(A[2],B[2],t);
+    f.rot=angLerp(A[4]/1000,B[4]/1000,t);
+    f.face=angLerp(A[6]/100,B[6]/100,t);
+    f.k=B[3];f.flags=B[5];
+    f.alive=!!(pl?pl[5]&1:B[5]&1);
+    f.seen=true;
+  }
+}
+
+// ================= Кадр =================
+const ctx=cv.getContext('2d');
+let lastFrame=performance.now(),reHidden=false;
+function frame(){
+  requestAnimationFrame(frame);
+  const now=performance.now(),dt=Math.min(0.05,(now-lastFrame)/1000);lastFrame=now;
+  if($('menu').classList.contains('active')){drawPreview(now);return}
+  if(!$('game').classList.contains('active')||!G||!G.last)return;
+  sendInput(now);
+  predict(dt,now);
+  interpolate(now);
+  step(dt,now);
+  draw(now,dt);
+}
+function step(dt,now){
+  for(const p of G.parts){p.x+=p.vx*dt;p.y+=p.vy*dt;const k=Math.exp(-p.drag*dt);p.vx*=k;p.vy*=k;p.life-=dt}
+  G.parts=G.parts.filter(p=>p.life>0);
+  for(const t of G.texts){t.y-=28*dt;t.life-=dt}
+  G.texts=G.texts.filter(t=>t.life>0);
+  for(const p of G.flyPk)p.life-=dt;
+  G.flyPk=G.flyPk.filter(p=>p.life>0);
+  G.shake=Math.max(0,G.shake-dt*30);
+  // след от скорости и ярости
+  for(const f of G.f)if(f.alive&&(f.flags&4||f.flags&32)&&Math.random()<0.5)addPart(f.x,f.y,{v:20,life:0.3,col:shade(colorOf(f.i),0.3),size:6,drag:3});
+  // отсчёт перед раундом
+  if(G.phase==='count'){const n=Math.ceil(G.phaseT);if(n!==G.lastBeep&&n>0){G.lastBeep=n;sfx('beep')}}
+  // выбор, за кем смотреть
+  if(spectating()&&!(G.f[G.spec]&&G.f[G.spec].alive)){
+    let best=null;for(const f of G.f)if(f.alive&&(!best||f.k>best.k))best=f;
+    G.spec=best?best.i:-1;
+  }
+  // кнопка рывка
+  const db=$('btnDash');db.classList.toggle('cd',G.dashCd>0);
+  // экран итогов: обратный отсчёт
+  if($('roundEnd').classList.contains('show')){
+    $('reNext').textContent=G.matchOver?(NET.leader===NET.slot?'Матч окончен. Сыграем ещё?':'Матч окончен. Новый матч может начать создатель игры.')
+      :G.phase==='end'?'Следующий раунд через '+Math.ceil(G.phaseT)+' с':'';
+  }
+}
+
+function draw(now,dt){
+  const dpr=Math.min(2,window.devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
+  // камера: за собой или за тем, за кем смотрим
+  const me=G.myI>=0?G.f[G.myI]:null;
+  const target=me&&me.alive?me:G.f[G.spec]||me||{x:G.z?G.z[0]:0,y:G.z?G.z[1]:0,k:5};
+  const viewR=520+orbitR(target.k||3)*1.7;
+  const wantS=clamp(Math.sqrt(W*H)/(2*viewR)*1.08,0.3,1.25);
+  if(!G.cam)G.cam={x:target.x,y:target.y,s:wantS};
+  const cam=G.cam;
+  if(me&&me.alive&&target===me){cam.x=target.x;cam.y=target.y}
+  else{const k=Math.min(1,dt*6);cam.x+=(target.x-cam.x)*k;cam.y+=(target.y-cam.y)*k}
+  cam.s+=(wantS-cam.s)*Math.min(1,dt*2);
+  cam.w=W;cam.h=H;cam.dpr=dpr;
+  const shx=G.shake?(Math.random()-0.5)*G.shake:0,shy=G.shake?(Math.random()-0.5)*G.shake:0;
+  const rc={x:cam.x+shx/cam.s,y:cam.y+shy/cam.s,s:cam.s,w:W,h:H,dpr};
+  const vx0=rc.x-W/2/rc.s,vy0=rc.y-H/2/rc.s,vx1=rc.x+W/2/rc.s,vy1=rc.y+H/2/rc.s;
+  const vis=(x,y,r)=>x+r>vx0&&x-r<vx1&&y+r>vy0&&y-r<vy1;
+
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle='#0d120e';ctx.fillRect(0,0,cv.width,cv.height);
+  setWorld(ctx,rc);
+  // арена
+  ctx.fillStyle='#3d6b3f';ctx.beginPath();ctx.arc(0,0,G.R,0,Math.PI*2);ctx.fill();
+  ctx.save();ctx.beginPath();ctx.arc(0,0,G.R,0,Math.PI*2);ctx.clip();
+  // клетки на земле
+  const T=90;
+  for(let gx=Math.floor(vx0/T)*T;gx<vx1;gx+=T)for(let gy=Math.floor(vy0/T)*T;gy<vy1;gy+=T){
+    if(((gx/T)+(gy/T))&1){ctx.fillStyle='rgba(255,255,255,.035)';ctx.fillRect(gx,gy,T,T)}
+  }
+  // травинки
+  ctx.strokeStyle='rgba(20,50,25,.35)';ctx.lineWidth=2;ctx.beginPath();
+  for(let gx=Math.floor(vx0/T)*T;gx<vx1;gx+=T)for(let gy=Math.floor(vy0/T)*T;gy<vy1;gy+=T){
+    const h=((gx*7919+gy*104729)>>>0)%97;
+    const x=gx+h%T*0.9,y=gy+(h*37)%T*0.9;ctx.moveTo(x,y);ctx.lineTo(x-3,y-7);ctx.moveTo(x+4,y);ctx.lineTo(x+6,y-6);
+  }
+  ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle='#5f5a4e';ctx.lineWidth=18;ctx.beginPath();ctx.arc(0,0,G.R+9,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='#7d776a';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,G.R+2,0,Math.PI*2);ctx.stroke();
+  // зона
+  const z=G.z;
+  if(z){
+    // красным — опасная часть арены (между краем арены и зоной)
+    ctx.fillStyle='rgba(255,40,90,.22)';ctx.beginPath();ctx.arc(0,0,G.R,0,Math.PI*2);ctx.arc(z[0],z[1],Math.max(1,z[2]),0,Math.PI*2,true);ctx.fill('evenodd');
+    ctx.strokeStyle='#ff3b6b';ctx.lineWidth=5/rc.s;ctx.beginPath();ctx.arc(z[0],z[1],Math.max(1,z[2]),0,Math.PI*2);ctx.stroke();
+    if(z[6]>=0&&z[5]<z[2]-2){
+      ctx.setLineDash([18/rc.s,12/rc.s]);ctx.strokeStyle='rgba(255,255,255,.65)';ctx.lineWidth=2.5/rc.s;
+      ctx.beginPath();ctx.arc(z[3],z[4],Math.max(1,z[5]),0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+    }
+  }
+  // ножи и бонусы на земле
+  const steel=knifeSprite('steel',0);
+  for(const p of G.pk.values()){
+    if(!vis(p.x,p.y,30))continue;
+    const age=(now-p.born)/1000,sc=age<0.25?age/0.25:1;
+    if(p.t==='k'){
+      ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(p.x+2,p.y+4,12*sc,4*sc,0,0,Math.PI*2);ctx.fill();
+      drawKnife(ctx,rc,steel,p.x,p.y,(p.id*2.399)%(Math.PI*2),0.8*sc);
+      setWorld(ctx,rc);
+    }else{
+      const info=POWER_INFO[p.t]||['?','#fff'],b=Math.sin(now/300+p.id)*3;
+      ctx.fillStyle=info[1];ctx.globalAlpha=0.3+0.15*Math.sin(now/200+p.id);
+      ctx.beginPath();ctx.arc(p.x,p.y+b,22*sc,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+      ctx.fillStyle='rgba(15,20,30,.85)';ctx.strokeStyle=info[1];ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(p.x,p.y+b,16*sc,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.font=`${18*sc}px "Segoe UI Emoji","Apple Color Emoji",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';
+      ctx.fillText(info[0],p.x,p.y+b+1);
+    }
+  }
+  // подобранное летит к бойцу
+  for(const p of G.flyPk){
+    const f=G.f[p.to];if(!f)continue;
+    const k=1-p.life/p.max,x=lerp(p.x,f.x,k*k),y=lerp(p.y,f.y,k*k);
+    if(p.t==='k'){drawKnife(ctx,rc,steel,x,y,k*8,0.8*(1-k*0.5));setWorld(ctx,rc)}
+  }
+  // кто в кустах — издалека не виден
+  const viewer=me&&me.alive?me:null;
+  const hidden=f=>{
+    if(f.i===G.myI)return false;
+    if(!G.bushes.some(b=>Math.hypot(f.x-b.x,f.y-b.y)<b.r-6))return false;
+    return !viewer||Math.hypot(f.x-viewer.x,f.y-viewer.y)>150;
+  };
+  const drawn=[];
+  for(const f of G.f){
+    if(!f.alive||!f.seen)continue;
+    const R=orbitR(f.k)+20;
+    if(!vis(f.x,f.y,R)||hidden(f))continue;
+    drawn.push(f);
+  }
+  // магнит и ярость — подсветка под бойцом
+  for(const f of drawn){
+    if(f.flags&8){ctx.strokeStyle='rgba(255,93,122,.35)';ctx.lineWidth=2;ctx.setLineDash([8,10]);ctx.beginPath();ctx.arc(f.x,f.y,MAGNET_R,now/600,now/600+Math.PI*2);ctx.stroke();ctx.setLineDash([])}
+    if(f.flags&16){ctx.fillStyle='rgba(166,107,255,.15)';ctx.beginPath();ctx.arc(f.x,f.y,orbitR(f.k)+14,0,Math.PI*2);ctx.fill()}
+  }
+  for(const f of drawn)drawKnives(ctx,rc,f,skinOf(f.i).knife,now);
+  for(const f of drawn){
+    ctx.globalAlpha=f.flags&64?0.5+0.4*Math.sin(now/50):1;
+    drawBody(ctx,f,skinOf(f.i),now);
+    ctx.globalAlpha=1;
+    if(f.flags&2){
+      ctx.strokeStyle='rgba(127,216,255,.85)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(f.x,f.y,BODY_R+7+Math.sin(now/150)*1.5,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle='rgba(127,216,255,.12)';ctx.fill();
+    }
+  }
+  // кусты поверх бойцов
+  const inMyBush=viewer?G.bushes.find(b=>Math.hypot(viewer.x-b.x,viewer.y-b.y)<b.r-6):null;
+  for(const b of G.bushes){
+    if(!vis(b.x,b.y,b.r*1.4))continue;
+    ctx.globalAlpha=b===inMyBush?0.55:0.96;
+    ctx.fillStyle='#24572c';for(const c of b.blobs){ctx.beginPath();ctx.arc(c.x+3,c.y+5,c.r,0,Math.PI*2);ctx.fill()}
+    ctx.fillStyle='#2f7a3a';for(const c of b.blobs){ctx.beginPath();ctx.arc(c.x,c.y,c.r,0,Math.PI*2);ctx.fill()}
+    ctx.fillStyle='#3e9a4a';for(const c of b.blobs){ctx.beginPath();ctx.arc(c.x-c.r*0.25,c.y-c.r*0.3,c.r*0.45,0,Math.PI*2);ctx.fill()}
+    ctx.globalAlpha=1;
+  }
+  // имена
+  ctx.textAlign='center';ctx.textBaseline='bottom';
+  const fs=clamp(13/rc.s,13,30);
+  ctx.font=`600 ${fs}px "Segoe UI",system-ui,sans-serif`;
+  ctx.lineWidth=fs/4;ctx.strokeStyle='rgba(0,0,0,.6)';ctx.lineJoin='round';
+  for(const f of drawn){
+    const y=f.y-orbitR(f.k)-16,label=(f.i===G.myI?'':nameOf(f.i)+' · ')+f.k+'🔪';
+    ctx.fillStyle=f.i===G.myI?'#ffd23f':'#fff';
+    ctx.strokeText(label,f.x,y);ctx.fillText(label,f.x,y);
+    if(f.emote&&now-f.emoteT<2600){
+      const t=EMOTES[f.emote]||'';const w=ctx.measureText(t).width+fs;
+      ctx.fillStyle='rgba(255,255,255,.95)';ctx.beginPath();ctx.roundRect(f.x-w/2,y-fs*2.6,w,fs*1.5,fs*0.4);ctx.fill();
+      ctx.fillStyle='#1b1b22';ctx.fillText(t,f.x,y-fs*1.25);
+    }
+  }
+  // частицы
+  for(const p of G.parts){
+    const a=p.life/p.max;ctx.globalAlpha=a;
+    if(p.ring){ctx.strokeStyle=p.col;ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,p.size*(1.8-a),0,Math.PI*2);ctx.stroke()}
+    else{ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.size*(0.4+a*0.6),0,Math.PI*2);ctx.fill()}
+  }
+  ctx.globalAlpha=1;
+  for(const t of G.texts){
+    ctx.globalAlpha=clamp(t.life/t.max*1.5,0,1);
+    ctx.font=`800 ${fs*1.3*t.size}px "Segoe UI",system-ui,sans-serif`;ctx.fillStyle=t.col;ctx.lineWidth=fs/3;
+    ctx.strokeText(t.text,t.x,t.y);ctx.fillText(t.text,t.x,t.y);
+  }
+  ctx.globalAlpha=1;
+  drawHud(now,W,H,dpr,me);
+}
+
+function drawHud(now,W,H,dpr,me){
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const u=clamp(Math.min(W,H)/520,0.72,1.25);
+  const top=8;
+  const alive=G.f.filter(f=>f.alive).length;
+  ctx.textBaseline='top';ctx.textAlign='left';
+  // слева сверху: сколько осталось, мои выбитые, зона
+  const z=G.z;
+  let zt='';
+  if(z&&G.phase==='play'){
+    if(z[6]<0)zt='☠️ Зона закрылась!';
+    else if(z[8])zt='⚠️ Зона сужается!';
+    else zt='⏱ Зона: '+Math.ceil(z[7]/10)+' с';
+  }
+  const lines=['👥 '+alive+' / '+G.f.length+(me?'   💀 '+me.kills:''),zt];
+  ctx.font=`700 ${15*u}px "Segoe UI",system-ui,sans-serif`;
+  let y=top+4;
+  for(const l of lines){
+    if(!l)continue;
+    const w=ctx.measureText(l).width+16*u;
+    ctx.fillStyle='rgba(10,14,24,.55)';ctx.beginPath();ctx.roundRect(8,y,w,24*u,8*u);ctx.fill();
+    ctx.fillStyle=l.startsWith('⚠')||l.startsWith('☠')?'#ff8a9a':'#fff';ctx.fillText(l,8+8*u,y+4*u);
+    y+=28*u;
+  }
+  // мини-карта
+  const mr=clamp(Math.min(W,H)*0.11,38,70),mx=8+mr,my=y+mr+4;
+  const k=mr/G.R;
+  ctx.fillStyle='rgba(10,14,24,.6)';ctx.beginPath();ctx.arc(mx,my,mr+3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(61,107,63,.85)';ctx.beginPath();ctx.arc(mx,my,mr,0,Math.PI*2);ctx.fill();
+  if(z){
+    ctx.strokeStyle='#ff3b6b';ctx.lineWidth=2;ctx.beginPath();ctx.arc(mx+z[0]*k,my+z[1]*k,Math.max(0.5,z[2]*k),0,Math.PI*2);ctx.stroke();
+    if(z[6]>=0&&z[5]<z[2]-2){ctx.strokeStyle='rgba(255,255,255,.8)';ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(mx+z[3]*k,my+z[4]*k,Math.max(0.5,z[5]*k),0,Math.PI*2);ctx.stroke();ctx.setLineDash([])}
+  }
+  const focus=me&&me.alive?me:G.f[G.spec];
+  if(focus){ctx.fillStyle='#ffd23f';ctx.strokeStyle='#000';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(mx+focus.x*k,my+focus.y*k,4,0,Math.PI*2);ctx.fill();ctx.stroke()}
+
+  // справа: лучшие по ножам
+  const rx=W-8;
+  let ry=top+clamp(Math.min(W,H)*0.07,36,46)+10;
+  const board=G.f.filter(f=>f.alive).sort((a,b)=>b.k-a.k||b.kills-a.kills);
+  const shown=board.slice(0,5);
+  if(me&&me.alive&&!shown.includes(me))shown.push(me);
+  ctx.font=`600 ${13*u}px "Segoe UI",system-ui,sans-serif`;ctx.textAlign='right';
+  const bw=170*u;
+  ctx.fillStyle='rgba(10,14,24,.5)';ctx.beginPath();ctx.roundRect(rx-bw,ry,bw,(shown.length*19+8)*u,8*u);ctx.fill();
+  shown.forEach((f,n)=>{
+    const yy=ry+(4+n*19)*u,place=board.indexOf(f)+1;
+    ctx.fillStyle=f===me?'#ffd23f':'#e8ecf4';
+    let nm=nameOf(f.i);if(nm.length>11)nm=nm.slice(0,10)+'…';
+    ctx.textAlign='left';ctx.fillText(place+'. '+nm,rx-bw+8*u,yy);
+    ctx.textAlign='right';ctx.fillText(f.k+'🔪',rx-8*u,yy);
+    ctx.fillStyle=colorOf(f.i);ctx.beginPath();ctx.arc(rx-bw+3*u,yy+7*u,2.5*u,0,Math.PI*2);ctx.fill();
+  });
+  ry+=(shown.length*19+14)*u;
+  // лента выбываний
+  ctx.font=`600 ${12*u}px "Segoe UI",system-ui,sans-serif`;ctx.textAlign='right';
+  for(const e of G.feed){
+    const age=(now-e.t)/1000;if(age>6)continue;
+    ctx.globalAlpha=clamp(6-age,0,1);
+    const w=ctx.measureText(e.text).width+12*u;
+    ctx.fillStyle=e.ki===G.myI?'rgba(60,120,40,.7)':e.vi===G.myI?'rgba(140,30,40,.75)':'rgba(10,14,24,.55)';
+    ctx.beginPath();ctx.roundRect(rx-w,ry,w,20*u,6*u);ctx.fill();
+    ctx.fillStyle='#fff';ctx.fillText(e.text,rx-6*u,ry+3*u);
+    ry+=23*u;
+  }
+  ctx.globalAlpha=1;
+
+  // по центру: отсчёт, объявления, выбывание
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  if(G.phase==='count'){
+    const n=Math.ceil(G.phaseT);
+    ctx.font=`900 ${90*u}px "Segoe UI",system-ui,sans-serif`;ctx.lineWidth=8*u;ctx.strokeStyle='rgba(0,0,0,.5)';ctx.fillStyle='#ffd23f';
+    ctx.strokeText(n>0?n:'',W/2,H*0.36);ctx.fillText(n>0?n:'',W/2,H*0.36);
+    ctx.font=`700 ${18*u}px "Segoe UI",system-ui,sans-serif`;ctx.fillStyle='#fff';ctx.lineWidth=4*u;
+    const t='Раунд '+G.round+' — собирай ножи!';ctx.strokeText(t,W/2,H*0.36+64*u);ctx.fillText(t,W/2,H*0.36+64*u);
+  }
+  if(G.banner&&now-G.banner.t<1800){
+    const a=clamp((1800-(now-G.banner.t))/400,0,1);ctx.globalAlpha=a;
+    ctx.font=`900 ${34*u}px "Segoe UI",system-ui,sans-serif`;ctx.lineWidth=6*u;ctx.strokeStyle='rgba(0,0,0,.5)';ctx.fillStyle=G.banner.col;
+    ctx.strokeText(G.banner.text,W/2,H*0.26);ctx.fillText(G.banner.text,W/2,H*0.26);ctx.globalAlpha=1;
+  }
+  if(me&&!me.alive&&G.phase==='play'){
+    const d=G.deathInfo||{};
+    ctx.font=`800 ${22*u}px "Segoe UI",system-ui,sans-serif`;ctx.lineWidth=5*u;ctx.strokeStyle='rgba(0,0,0,.55)';ctx.fillStyle='#ff8a9a';
+    const t1='💀 Ты выбыл'+(d.place?' — место '+d.place:'')+(d.by>=0?' (от '+nameOf(d.by)+')':d.by===-1?' (зона)':'');
+    ctx.strokeText(t1,W/2,H*0.16);ctx.fillText(t1,W/2,H*0.16);
+    if(G.f[G.spec]){
+      ctx.font=`600 ${15*u}px "Segoe UI",system-ui,sans-serif`;ctx.fillStyle='#fff';
+      const t2='👀 Смотришь за: '+nameOf(G.spec)+' · нажми, чтобы сменить';
+      ctx.strokeText(t2,W/2,H*0.16+30*u);ctx.fillText(t2,W/2,H*0.16+30*u);
+    }
+  }else if(G.myI<0&&G.phase!=='end'){
+    ctx.font=`700 ${16*u}px "Segoe UI",system-ui,sans-serif`;ctx.lineWidth=4*u;ctx.strokeStyle='rgba(0,0,0,.55)';ctx.fillStyle='#fff';
+    const t='Ты зритель — со следующего раунда ты в бою';ctx.strokeText(t,W/2,H*0.16);ctx.fillText(t,W/2,H*0.16);
+  }
+  // за зоной — предупреждение
+  if(me&&me.alive&&z&&G.phase==='play'&&Math.hypot(me.x-z[0],me.y-z[1])>z[2]){
+    ctx.globalAlpha=0.5+0.5*Math.sin(now/120);
+    ctx.font=`800 ${20*u}px "Segoe UI",system-ui,sans-serif`;ctx.fillStyle='#ff5d7a';ctx.lineWidth=5*u;ctx.strokeStyle='rgba(0,0,0,.6)';
+    const t='Ты за зоной — ножи тают! Беги к центру';ctx.strokeText(t,W/2,H*0.78);ctx.fillText(t,W/2,H*0.78);
+    ctx.globalAlpha=1;
+    // стрелка к зоне
+    const a=Math.atan2(z[1]-me.y,z[0]-me.x),cx=W/2+Math.cos(a)*80*u,cy=H/2+Math.sin(a)*80*u;
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(a);ctx.fillStyle='rgba(255,255,255,.85)';
+    ctx.beginPath();ctx.moveTo(16*u,0);ctx.lineTo(-8*u,-11*u);ctx.lineTo(-8*u,11*u);ctx.closePath();ctx.fill();ctx.restore();
+  }
+  // связь
+  const nt=netNotice();
+  if(nt){
+    ctx.font=`700 ${14*u}px "Segoe UI",system-ui,sans-serif`;
+    const w=ctx.measureText(nt).width+20*u;
+    ctx.fillStyle='rgba(120,30,40,.85)';ctx.beginPath();ctx.roundRect(W/2-w/2,H-48*u,w,28*u,8*u);ctx.fill();
+    ctx.fillStyle='#fff';ctx.fillText(nt,W/2,H-34*u);
+  }
+  // джойстик
+  if(joy){
+    const r=joyR();
+    ctx.fillStyle='rgba(255,255,255,.12)';ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(joy.bx,joy.by,r,0,Math.PI*2);ctx.fill();ctx.stroke();
+    let dx=joy.x-joy.bx,dy=joy.y-joy.by;const l=Math.hypot(dx,dy);if(l>r){dx*=r/l;dy*=r/l}
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.beginPath();ctx.arc(joy.bx+dx,joy.by+dy,r*0.45,0,Math.PI*2);ctx.fill();
+  }else if(G.phase==='count'){
+    ctx.font=`600 ${14*u}px "Segoe UI",system-ui,sans-serif`;ctx.fillStyle='rgba(255,255,255,.85)';
+    ctx.fillText(TOUCH?'Веди пальцем по экрану — это джойстик · ⚡ — рывок':'Мышь или WASD — движение · пробел или клик — рывок',W/2,H-40*u);
+  }
+}
+
+// ================= Итоги раунда =================
+function showRoundEnd(m){
+  if(!G)return;
+  G.standings=m.standings;G.winner=m.winner;G.score=m.score||G.score;G.matchOver=!!m.match_over;
+  const iWon=m.winner===NET.slot;
+  const wi=G.order.indexOf(m.winner);
+  $('reTitle').textContent=G.matchOver?(iWon?'🏆 Ты выиграл матч!':'🏆 Матч выиграл '+nameOf(wi)):iWon?'🏆 Победа!':wi>=0?'Раунд выиграл '+nameOf(wi):'Ничья';
+  const mine=m.standings.find(s=>s.sid===NET.slot);
+  $('reSub').textContent='Раунд '+m.round+(mine&&!iWon?' · твоё место: '+mine.place:'')+(G.opts&&G.opts.wins?' · матч до '+G.opts.wins+' побед':'');
+  let h='<tr><th>#</th><th>Боец</th><th>💀</th><th>🔪 макс</th><th>🏆</th></tr>';
+  for(const s of m.standings){
+    const sc=(G.score||{})[s.sid]||{wins:0};
+    h+=`<tr class="${s.sid===NET.slot?'me':''}"><td>${s.place||'—'}</td><td><span class="c" style="background:${colorOf(s.i)}"></span>${esc(nameOf(s.i))}</td><td>${s.kills}</td><td>${s.maxK}</td><td>${sc.wins}</td></tr>`;
+  }
+  $('reTable').innerHTML=h;
+  $('btnRestart').style.display=G.matchOver&&NET.leader===NET.slot?'':'none';
+  $('roundEnd').classList.add('show');
+  reHidden=false;
+}
+$('btnReHide').onclick=()=>{$('roundEnd').classList.remove('show');reHidden=true};
+$('btnRestart').onclick=()=>netSend({action:'restart'});
+$('btnReMenu').onclick=()=>toMenu();
+
+// ================= Кнопки боя =================
+function sendEmote(n){
+  if(!G||n<0||n>=EMOTES.length)return;
+  netSend({action:'emote',e:n});
+  $('emotes').classList.remove('show');
+}
+(function(){
+  const box=$('emotes');
+  EMOTES.forEach((t,i)=>{const b=document.createElement('button');b.className='btn';b.textContent=t;b.onclick=()=>sendEmote(i);box.append(b)});
+})();
+$('btnEmote').onclick=()=>$('emotes').classList.toggle('show');
+$('btnSound').onclick=()=>setSound(!soundOn);
+$('btnFull').onclick=()=>{
+  const d=document,el=d.documentElement;
+  if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen).call(d)}
+  else{const f=el.requestFullscreen||el.webkitRequestFullscreen;if(f)Promise.resolve(f.call(el)).catch(()=>{});else toast('На iPhone: «Поделиться» → «На экран Домой»')}
+};
+$('btnExit').onclick=()=>{
+  if(mode==='online'&&G&&G.phase==='play'&&!confirm(NET.host?'Выйти? Игра закроется для всех.':'Выйти из игры?'))return;
+  toMenu();
+};
+function soloGame(){return HOST.hub&&HOST.gid?HOST.hub.games[HOST.gid]:null}
+function soloPaused(){const g=soloGame();return !!(g&&g.paused)}
+function setPaused(p){
+  const g=soloGame();if(!g||mode!=='solo')return;
+  g.paused=p;$('pauseBox').classList.toggle('show',p);
+}
+function updatePauseBtn(){$('btnPause').style.display=mode==='solo'?'':'none'}
+$('btnPause').onclick=()=>setPaused(true);
+$('btnResume').onclick=()=>setPaused(false);
+$('btnPauseMenu').onclick=()=>toMenu();
+
+function toMenu(){
+  if(NET.conn&&NET.gameId&&!NET.host)netSend({action:'leave'});
+  clearSession();netClose();G=null;mode=null;
+  $('roundEnd').classList.remove('show');$('pauseBox').classList.remove('show');
+  show('menu');renderProgress();
+}
+
+// ================= Онлайн =================
+// Два способа связи, протокол сообщений у них один и тот же:
+//  'p2p' — комната (room.js) работает в браузере создателя игры, остальные подключаются к нему через WebRTC (PeerJS);
+//  'ws'  — комната тоже у создателя, а server.py на компьютере только пересылает сообщения (игра по Wi-Fi без интернета).
+// Игра с ботами — та же комната, только без сети.
+// На телефоне браузер рвёт соединение, когда переключаешься в другое приложение.
+// Поэтому комната держит место игрока, а страница сама переподключается и продолжает игру.
+const NET={conn:null,via:'p2p',host:false,solo:false,slot:null,gameId:null,token:null,lan:[],retry:0,rtimer:null,pingAt:0,pongAt:0,
+  slots:{},leader:null,opts:{},started:false,err:null,createSeq:0,rtt:80,pingN:0,pings:{}};
+const SERVED=/^https?:$/.test(location.protocol);
+const AUTO_WS=SERVED?(location.protocol==='https:'?'wss://':'ws://')+location.host:null;
+let PY_SERVER=false; // страницу отдал server.py — к нему подключаемся автоматически
+let serverIp=lsGet('knives_server_ip')||'127.0.0.1:8766';
+$('serverIp').value=serverIp;
+function wsUrl(){if(PY_SERVER)return AUTO_WS;return /^wss?:\/\//i.test(serverIp)?serverIp:'ws://'+serverIp}
+function setVia(v,manual){
+  NET.via=v==='ws'?'ws':'p2p';$('netVia').value=NET.via;
+  if(manual)lsSet('knives_via',NET.via);
+  const ws=NET.via==='ws';
+  $('serverRow').style.display=ws&&!PY_SERVER?'':'none';
+  $('serverInfo').textContent=!ws?'Сервер не нужен — им станет устройство того, кто создаёт игру. Интернет нужен, чтобы устройства нашли друг друга. Создателю игры лучше не сворачивать браузер.'
+    :PY_SERVER?'Сервер: '+location.host+' (подключение автоматически)'
+    :'Запустите start_server.bat на компьютере и укажите адрес, который он покажет. Проще открыть игру прямо по этому адресу.';
+}
+setVia(lsGet('knives_via')||'p2p');
+$('netVia').onchange=e=>setVia(e.target.value,true);
+// Страницу мог отдать server.py — тогда по умолчанию играем через него
+if(SERVED){
+  fetch('knives-server.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(info=>{
+    if(!info||!info.knives)return;
+    PY_SERVER=true;NET.lan=info.lan||NET.lan;
+    if(!NET.conn&&!NET.token)setVia(lsGet('knives_via')||'ws');else setVia(NET.via);
+  }).catch(()=>{});
+}
+function netStatus(t){$('netStatus').textContent=t}
+function saveServer(){const v=$('serverIp').value.trim();if(!v)return;serverIp=v;lsSet('knives_server_ip',v);netStatus('Адрес сохранён: '+wsUrl())}
+$('btnSaveServer').onclick=saveServer;
+function netOnline(){return !!(NET.conn&&NET.conn.readyState===1)}
+function netSend(o){if(netOnline()){try{NET.conn.send(o);return true}catch(e){}}return false}
+function netClose(){
+  NET.createSeq++;
+  if(NET.conn){const c=NET.conn;NET.conn=null;c.close()}
+  hostStop();releaseWake();
+}
+
+// --- транспорты: readyState (0 — соединяемся, 1 — открыто, 3 — закрыто), send(obj), close()
+// и колбэки onopen/onmessage/onclose. close() сам onclose не вызывает.
+function transport(){return{readyState:0,err:null,onopen:null,onmessage:null,onclose:null,send(){},close(){this.readyState=3}}}
+function tOpen(t){if(t.readyState!==0)return;t.readyState=1;if(t.onopen)t.onopen()}
+function tLost(t,err){if(t.readyState===3)return;t.readyState=3;if(err)t.err=err;if(t.onclose)t.onclose()}
+function tData(t,raw){if(t.readyState!==1||!t.onmessage)return;let m;try{m=typeof raw==='string'?JSON.parse(raw):raw}catch(e){return}t.onmessage(m)}
+
+// Гость через server.py: просим переслать нас к хосту игры gid, дальше сообщения идут как есть
+function relayTransport(url,gid){
+  const t=transport();
+  let ws;
+  try{ws=new WebSocket(url)}catch(e){t.readyState=3;t.err='bad-url';return t}
+  ws.onopen=()=>{ws.send(JSON.stringify({action:'relay_join',game_id:gid}));tOpen(t)};
+  ws.onmessage=e=>{
+    let m;try{m=JSON.parse(e.data)}catch(_){return}
+    if(m&&m.type==='relay_nohost'){t.err='peer-unavailable';return} // хоста нет — сервер сейчас отключит
+    tData(t,m);
+  };
+  ws.onclose=()=>tLost(t,t.err);
+  t.send=o=>ws.send(JSON.stringify(o));
+  t.close=()=>{t.readyState=3;try{ws.close(1000)}catch(e){}};
+  return t;
+}
+// Создатель игры подключается к своей же комнате без сети. Через JSON — чтобы комната и игра не делили объекты
+function loopTransport(){
+  const t=transport(),later=f=>setTimeout(f,0);
+  const sess=HOST.hub.connect({
+    send:o=>{const s=JSON.stringify(o);later(()=>tData(t,s))},
+    close:()=>later(()=>{tLost(t);sess.closed()}),
+  });
+  t.send=o=>{const s=JSON.stringify(o);later(()=>{if(t.readyState===1)sess.message(JSON.parse(s))})};
+  t.close=()=>{if(t.readyState===3)return;t.readyState=3;later(()=>sess.closed())};
+  later(()=>tOpen(t));
+  return t;
+}
+
+// --- PeerJS: знакомит браузеры через свой бесплатный сервер, дальше связь идёт напрямую (WebRTC) ---
+// Свой сервер знакомств можно задать так: localStorage.knives_peer='{"host":"…","port":443,"path":"/","secure":true}'
+const PEERJS_URLS=['https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js','https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'];
+const PEER_PREFIX='nozhi-knives-';
+let peerLib=null;
+function loadPeerJs(){
+  if(window.Peer)return Promise.resolve();
+  if(peerLib)return peerLib;
+  peerLib=new Promise((res,rej)=>{
+    const next=i=>{
+      if(i>=PEERJS_URLS.length){peerLib=null;rej('no-lib');return}
+      const s=document.createElement('script');s.src=PEERJS_URLS[i];s.crossOrigin='anonymous';
+      s.onload=()=>window.Peer?res():next(i+1);
+      s.onerror=()=>{s.remove();next(i+1)};
+      document.head.append(s);
+    };
+    next(0);
+  });
+  return peerLib;
+}
+// --- серверы для поиска маршрута между устройствами (ICE) ---
+// STUN подсказывает устройству его внешний адрес — этого хватает, если обе сети «пропускают» прямое соединение.
+// TURN — ретранслятор на случай, когда напрямую нельзя (мобильный интернет, CGNAT у провайдера).
+// Ключ Metered (бесплатный тариф, 500 МБ через ретранслятор в месяц) — тот же, что у «Лучника».
+// Ключ лежит в открытом коде — для TURN так и задумано: худшее, что можно сделать с ним, — потратить этот лимит.
+const STUN_SERVERS=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']},{urls:'stun:stun.cloudflare.com:3478'}];
+const TURN_USER='0eea1dbe53ebb64348d2e282',TURN_PASS='IpRgNw5q7HDm5nlk';
+const TURN_SERVERS=[
+  'turn:global.relay.metered.ca:80',
+  'turn:global.relay.metered.ca:80?transport=tcp',
+  'turn:global.relay.metered.ca:443',
+  'turns:global.relay.metered.ca:443?transport=tcp', // через TLS на 443 — пройдёт даже там, где режут всё, кроме HTTPS
+].map(urls=>({urls,username:TURN_USER,credential:TURN_PASS}));
+function iceServers(){
+  // для проверок можно задать свои: localStorage.knives_ice='[{"urls":"turn:…","username":"…","credential":"…"}]'
+  try{const o=JSON.parse(lsGet('knives_ice')||'null');if(Array.isArray(o))return Promise.resolve(STUN_SERVERS.concat(o))}catch(e){}
+  return Promise.resolve(STUN_SERVERS.concat(TURN_SERVERS));
+}
+function peerOpts(ice){
+  let o=null;try{o=JSON.parse(lsGet('knives_peer')||'null')}catch(e){}
+  const config={iceServers:ice};
+  if(lsGet('knives_relay')==='1')config.iceTransportPolicy='relay'; // проверка ретранслятора
+  return Object.assign({debug:1,config},o||{});
+}
+// почему не открылся канал: сеть не пропустила (ICE) или что-то ещё
+function iceErr(dc){const pc=dc&&dc.peerConnection,s=pc&&pc.iceConnectionState;return s==='failed'||s==='disconnected'||s==='checking'?'ice-'+s:null}
+function peerTransport(gid){
+  const t=transport();
+  let peer=null,dc=null;
+  const fail=err=>{if(peer){try{peer.destroy()}catch(e){}}tLost(t,err)};
+  Promise.all([loadPeerJs(),iceServers()]).then(([,ice])=>{
+    if(t.readyState===3)return;
+    peer=new Peer(peerOpts(ice));
+    peer.on('error',e=>{if(t.readyState===0)fail(iceErr(dc)||(e&&e.type)||'error')}); // после соединения ошибки сервера знакомств не страшны
+    peer.on('open',()=>{
+      if(t.readyState===3)return;
+      dc=peer.connect(PEER_PREFIX+gid,{reliable:true});
+      dc.on('open',()=>tOpen(t));
+      dc.on('data',d=>tData(t,d));
+      dc.on('close',()=>fail(iceErr(dc)||'closed'));
+      dc.on('error',e=>fail(iceErr(dc)||(e&&e.type)||'dc-error'));
+      t.send=o=>dc.send(JSON.stringify(o));
+    });
+  },fail);
+  // так и не соединились — сдаёмся с понятной причиной
+  setTimeout(()=>{if(t.readyState===0)fail(iceErr(dc)||(dc?'timeout':peer&&peer.open?'timeout':'no-signal'))},20000);
+  t.close=()=>{t.readyState=3;if(peer){try{peer.destroy()}catch(e){}}};
+  return t;
+}
+
+// --- хост: комната (room.js) живёт в браузере создателя игры ---
+// «Слушатель» (listener) — то, что принимает гостей (PeerJS или пересылка server.py); у обоих есть destroy().
+// Снимок комнаты сохраняется, чтобы игра пережила перезагрузку вкладки хоста.
+const HOST_KEY='knives_host';
+const HOST={listener:null,hub:null,gid:null,saveT:null};
+// Таймер симуляции из Web Worker: в фоновой вкладке обычный setInterval замедляется до раза в секунду
+function workerEvery(fn,ms){
+  try{
+    const url=URL.createObjectURL(new Blob([`setInterval(()=>postMessage(0),${ms})`],{type:'text/javascript'}));
+    const w=new Worker(url);URL.revokeObjectURL(url);
+    w.onmessage=()=>fn();
+    return()=>w.terminate();
+  }catch(e){const h=setInterval(fn,ms);return()=>clearInterval(h)}
+}
+function hostListen(gid){return NET.via==='ws'?relayListen(gid):peerListen(gid)}
+function peerListen(gid){
+  return Promise.all([loadPeerJs(),iceServers()]).then(([,ice])=>new Promise((res,rej)=>{
+    const peer=new Peer(PEER_PREFIX+gid,peerOpts(ice));
+    const L={peer,destroy(){try{peer.destroy()}catch(e){}}};
+    let opened=false;
+    peer.on('open',()=>{opened=true;res(L)});
+    peer.on('error',e=>{if(!opened){L.destroy();rej(e&&e.type||'error')}});
+    // пропала связь с сервером знакомств — играющие гости не заметят, но новые не подключатся: возвращаемся
+    peer.on('disconnected',()=>setTimeout(()=>{if(HOST.listener===L&&!peer.destroyed&&peer.disconnected)try{peer.reconnect()}catch(e){}},2000));
+    peer.on('connection',hostAccept);
+  }));
+}
+// Хост через server.py: сервер пересылает сообщения гостей, помечая их номером связи (cid)
+function relayListen(gid){
+  return new Promise((res,rej)=>{
+    let ws;try{ws=new WebSocket(wsUrl())}catch(e){rej('bad-url');return}
+    const guests=new Map(); // cid -> сессия гостя в комнате
+    const L={destroyed:false,destroy(){L.destroyed=true;try{ws.close()}catch(e){}}};
+    const send=o=>{if(ws.readyState===1)ws.send(JSON.stringify(o))};
+    let ok=false;
+    ws.onopen=()=>send({action:'relay_host',game_id:gid});
+    ws.onmessage=e=>{
+      let m;try{m=JSON.parse(e.data)}catch(_){return}
+      if(m.type==='relay_ok'){ok=true;res(L)}
+      else if(m.type==='relay_taken'){rej('unavailable-id');L.destroy()}
+      else if(m.type==='relay_open'&&HOST.hub){
+        const cid=m.cid;
+        guests.set(cid,HOST.hub.connect({
+          send:o=>send({action:'relay_send',cid,data:o}),
+          close:()=>setTimeout(()=>send({action:'relay_close',cid}),300), // даём уйти последнему сообщению
+        }));
+      }else if(m.type==='relay_msg'){const s=guests.get(m.cid);if(s)s.message(m.data)}
+      else if(m.type==='relay_close'){const s=guests.get(m.cid);if(s){guests.delete(m.cid);s.closed()}}
+    };
+    ws.onclose=()=>{
+      for(const s of guests.values())s.closed();
+      guests.clear();
+      if(!ok){rej('server');return}
+      // связь с сервером пропала: гостей он уже отключил — регистрируемся снова, они переподключатся сами
+      if(!L.destroyed&&HOST.listener===L)setTimeout(()=>relayRelisten(L,gid),2000);
+    };
+  });
+}
+function relayRelisten(old,gid){
+  if(HOST.listener!==old)return;
+  relayListen(gid).then(nl=>{if(HOST.listener===old)HOST.listener=nl;else nl.destroy()},
+    ()=>setTimeout(()=>relayRelisten(old,gid),3000));
+}
+function hostAccept(dc){
+  if(!HOST.hub){try{dc.close()}catch(e){}return}
+  const hub=HOST.hub;
+  let sess=null;
+  const conn={
+    send:o=>{if(dc.open)dc.send(JSON.stringify(o))},
+    close:()=>setTimeout(()=>{try{dc.close()}catch(e){}},300), // даём уйти последнему сообщению
+  };
+  dc.on('open',()=>{sess=hub.connect(conn)});
+  dc.on('data',d=>{if(!sess)return;let m;try{m=typeof d==='string'?JSON.parse(d):d}catch(e){return}sess.message(m)});
+  const gone=()=>{if(sess){const s=sess;sess=null;s.closed()}};
+  dc.on('close',gone);dc.on('error',gone);
+}
+function hostSetup(listener,gid,snap){
+  HOST.listener=listener;HOST.gid=gid;
+  HOST.hub=new KnivesHub({
+    log:m=>console.log(m),
+    onChange:hostSave,
+    onClosed:id=>{if(id!==HOST.gid)return;hostStop();if(NET.host)onNet({type:'game_closed'})},
+    every:workerEvery,
+  });
+  if(snap)HOST.hub.restore(snap);
+}
+function hostSave(){
+  if(HOST.saveT||NET.solo)return;
+  HOST.saveT=setTimeout(()=>{
+    HOST.saveT=null;
+    const s=HOST.hub&&HOST.hub.snapshot(HOST.gid);
+    if(s)lsSet(HOST_KEY,JSON.stringify({ts:Date.now(),game:s}));
+  },500);
+}
+function hostStop(){
+  const {listener,hub,gid,saveT}=HOST;
+  if(!listener&&!hub)return;
+  Object.assign(HOST,{listener:null,hub:null,gid:null,saveT:null});
+  if(saveT)clearTimeout(saveT);
+  if(hub&&gid)hub.shutdown(gid); // гостям уходит «игра закрыта»
+  if(hub)for(const id in hub.games)hub.shutdown(id);
+  if(listener)setTimeout(()=>listener.destroy(),600);
+  lsDel(HOST_KEY);
+}
+function hostCreate(){
+  // код игры = адрес хоста (у сервера знакомств или у server.py); если такой занят — берём другой
+  let tries=0;
+  const attempt=()=>{
+    const gid=KnivesHub.randomGameId();
+    return hostListen(gid).then(listener=>({listener,gid}),err=>{if(err==='unavailable-id'&&++tries<5)return attempt();throw err});
+  };
+  return attempt();
+}
+function hostRestore(gid){
+  let saved=null;try{saved=JSON.parse(lsGet(HOST_KEY)||'null')}catch(e){}
+  if(!saved||!saved.game||saved.game.id!==gid||Date.now()-saved.ts>10*60e3)return Promise.reject('no-snapshot');
+  // старый адрес хоста может ещё несколько секунд числиться занятым
+  let tries=0;
+  const attempt=()=>hostListen(gid).catch(err=>{
+    if(err==='unavailable-id'&&++tries<10)return new Promise(r=>setTimeout(r,2500)).then(attempt);
+    throw err;
+  });
+  return attempt().then(listener=>({listener,game:saved.game}));
+}
+function hostErrText(err){
+  if(NET.via==='ws')return'❌ Нет связи с сервером на компьютере ('+wsUrl()+'). Проверьте, что server.py запущен и устройство в той же сети.';
+  if(err==='no-lib')return'❌ Не удалось загрузить модуль связи — нужен интернет.';
+  if(err==='browser-incompatible')return'❌ Этот браузер не поддерживает прямое соединение (WebRTC). Попробуйте Chrome или Safari.';
+  return'❌ Нет связи с сервером знакомств (PeerJS) — нужен интернет. Без интернета выберите «Через сервер на компьютере». (код: '+err+')';
+}
+
+// Экран не гаснет, пока идёт игра
+let wakeLock=null;
+function keepAwake(){
+  if(wakeLock||document.hidden||!navigator.wakeLock)return;
+  wakeLock='pending';
+  navigator.wakeLock.request('screen').then(l=>{
+    if(wakeLock!=='pending'){l.release().catch(()=>{});return}
+    wakeLock=l;l.addEventListener('release',()=>{if(wakeLock===l)wakeLock=null});
+  },()=>{if(wakeLock==='pending')wakeLock=null});
+}
+function releaseWake(){const l=wakeLock;wakeLock=null;if(l&&l!=='pending')l.release().catch(()=>{})}
+
+// --- сессия (чтобы вернуться в игру даже после перезагрузки вкладки) ---
+const SESS_KEY='knives_session';
+function saveSession(){if(NET.solo)return;lsSet(SESS_KEY,JSON.stringify({gid:NET.gameId,slot:NET.slot,token:NET.token,via:NET.via,host:NET.host,ws:NET.via==='ws'?wsUrl():null,ts:Date.now()}))}
+function loadSession(){try{const s=JSON.parse(lsGet(SESS_KEY)||'null');return s&&s.slot&&Date.now()-s.ts<6*3600e3?s:null}catch(e){return null}}
+function clearSession(){
+  NET.token=null;NET.gameId=null;NET.host=false;NET.solo=false;NET.retry=0;NET.slots={};NET.leader=null;NET.started=false;NET.err=null;
+  if(NET.rtimer){clearTimeout(NET.rtimer);NET.rtimer=null}
+  lsDel(SESS_KEY);
+}
+function makeTransport(gid){
+  if(NET.host){
+    if(HOST.hub)return loopTransport();
+    const t=transport();t.readyState=3;t.err='no-host';return t;
+  }
+  return NET.via==='ws'?relayTransport(wsUrl(),gid):peerTransport(gid);
+}
+function openSocket(first){
+  const t=makeTransport(first.game_id||NET.gameId);
+  if(t.readyState===3){
+    if(t.err==='no-host')onNet({type:'resume_failed'});else netStatus('❌ Неверный адрес сервера');
+    return;
+  }
+  NET.conn=t;
+  t.onopen=()=>{NET.pingAt=NET.pongAt=0;t.send(first);keepAwake()};
+  t.onmessage=onNet;
+  t.onclose=()=>{if(NET.conn!==t)return;NET.conn=null;NET.err=t.err;socketLost()};
+}
+function lostText(){
+  if(NET.err==='peer-unavailable')return'❌ Игра не найдена. Проверьте код — и что создатель игры её не закрыл.';
+  if(NET.via==='ws')return'❌ Нет соединения с сервером. Проверьте, что сервер запущен'+(PY_SERVER?' и устройство в той же сети.':' и адрес верный.');
+  if(NET.err==='no-lib')return'❌ Не удалось загрузить модуль связи — нужен интернет.';
+  const code=' (код: '+(NET.err||'closed')+')';
+  if(/^ice-|timeout|negotiation/.test(NET.err||''))
+    return'❌ Игра найдена, но сеть не пропустила соединение между устройствами. Попробуйте другую сеть (например, Wi-Fi вместо мобильного интернета).'+code;
+  if(/network|server-error|socket|no-signal/.test(NET.err||''))return'❌ Нет связи с сервером знакомств (PeerJS) — проверьте интернет.'+code;
+  return'❌ Не удалось соединиться с создателем игры. Нужен интернет; если не помогает — попробуйте другую сеть.'+code;
+}
+function socketLost(){
+  if(NET.token&&NET.gameId){scheduleReconnect();return}
+  netStatus(lostText());
+  if($('lobby').classList.contains('active'))show('menu');
+}
+function scheduleReconnect(delay){
+  if(NET.rtimer||NET.conn||!NET.token)return;
+  if(NET.host&&!HOST.hub)return; // комната хоста ещё поднимается из снимка — подключимся, когда будет готова
+  if(delay==null)delay=Math.min(5000,300+NET.retry*700);
+  NET.rtimer=setTimeout(()=>{
+    NET.rtimer=null;
+    if(NET.conn||!NET.token||(NET.host&&!HOST.hub))return;
+    if(document.hidden)return; // вкладка в фоне — переподключимся, когда вернутся
+    if(++NET.retry>80){
+      const lost='Нет связи с '+(NET.via==='ws'?'сервером':'создателем игры');
+      clearSession();
+      if(G&&mode==='online'){G.disconnected=true;toast(lost)}
+      else{show('menu');netStatus('❌ '+lost)}
+      return;
+    }
+    openSocket({action:'resume',game_id:NET.gameId,slot:NET.slot,token:NET.token,skin:mySkin()});
+    const t=NET.conn;
+    // P2P соединяется дольше: загрузка модуля, сервер знакомств, поиск маршрута
+    setTimeout(()=>{if(NET.conn===t&&t&&t.readyState===0){NET.conn=null;t.close();scheduleReconnect()}},NET.via==='ws'?6000:15000);
+  },delay);
+}
+function resumeNow(){
+  if(!NET.token||!NET.gameId)return;
+  if(NET.conn&&NET.conn.readyState<=1){
+    // соединение формально живо — проверяем, что оно не «мёртвое» после сна телефона
+    if(NET.conn.readyState===1){
+      const c=NET.conn,t=Date.now();NET.pingAt=t;netSend({action:'ping'});
+      setTimeout(()=>{if(NET.conn===c&&NET.pongAt<t){NET.conn=null;c.close();scheduleReconnect(0)}},2500);
+    }
+    return;
+  }
+  if(NET.rtimer){clearTimeout(NET.rtimer);NET.rtimer=null}
+  scheduleReconnect(0);
+}
+// Пинг раз в секунду: меряем задержку (для своего движения) и замечаем «мёртвое» соединение
+setInterval(()=>{
+  const c=NET.conn;
+  if(!c||c.readyState!==1||!NET.token||document.hidden)return;
+  const now=Date.now();
+  if(NET.pingAt>NET.pongAt){
+    if(now-NET.pingAt>8000&&!NET.solo){NET.conn=null;c.close();scheduleReconnect(0)}
+  }else if(now-NET.pingAt>=1000){
+    NET.pingAt=now;const n=++NET.pingN;NET.pings[n]=performance.now();
+    netSend({action:'ping',n});
+  }
+},250);
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){if(mode==='solo')setPaused(true)}
+  else{resumeNow();if(NET.conn)keepAwake()}
+});
+addEventListener('pageshow',resumeNow);
+addEventListener('focus',resumeNow);
+addEventListener('online',resumeNow);
+
+function netConnect(first){
+  audioInit();netClose();clearSession();
+  if(NET.via==='ws'){
+    if(!PY_SERVER){const v=$('serverIp').value.trim();if(v)serverIp=v}
+    netStatus('Подключение к '+wsUrl()+'…');
+  }else netStatus('Подключение к игре '+first.game_id+'…');
+  openSocket(first);
+}
+function netCreate(){
+  const first={action:'create_game',name:myName(),opts:gameOpts(),skin:mySkin()};
+  // сначала регистрируем это устройство как хост (у PeerJS или у server.py), потом входим в свою же комнату
+  audioInit();netClose();clearSession();
+  if(NET.via==='ws'&&!PY_SERVER){const v=$('serverIp').value.trim();if(v)serverIp=v}
+  const seq=NET.createSeq;
+  netStatus('Создаём игру…');
+  hostCreate().then(({listener,gid})=>{
+    if(seq!==NET.createSeq){listener.destroy();return} // пока ждали, ушли в другое место
+    hostSetup(listener,gid);
+    NET.host=true;first.game_id=gid;
+    openSocket(first);
+  },err=>{if(seq===NET.createSeq)netStatus(hostErrText(err))});
+}
+function soloStart(){
+  audioInit();netClose();clearSession();
+  hostSetup(null,null);
+  NET.host=true;NET.solo=true;
+  openSocket({action:'create_game',name:myName(),opts:Object.assign(gameOpts(),{solo:true,bots:true}),skin:mySkin()});
+}
+function netJoin(){
+  const id=$('joinId').value.trim().toUpperCase();
+  if(!/^[A-Z0-9]{6}$/.test(id)){netStatus('Введите код игры из 6 символов');return}
+  netConnect({action:'join_game',game_id:id,name:myName(),skin:mySkin()});
+}
+$('btnSolo').onclick=soloStart;
+$('btnCreate').onclick=netCreate;
+$('btnJoin').onclick=netJoin;
+$('joinId').addEventListener('keydown',e=>{if(e.key==='Enter')netJoin()});
+function inviteLink(){
+  if(!SERVED||!NET.gameId)return null;
+  let base=location.origin+location.pathname.replace(/index\.html$/,'');
+  if(/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)&&NET.lan.length)base=NET.lan[0]+'/';
+  return base+(NET.via==='p2p'?'#p2p=':'#')+NET.gameId;
+}
+function copyText(text,done){
+  if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,()=>{})}
+  else{
+    const t=document.createElement('textarea');t.value=text;t.setAttribute('readonly','');t.style.position='fixed';t.style.opacity='0';
+    document.body.appendChild(t);t.select();t.setSelectionRange(0,text.length);
+    try{document.execCommand('copy');done()}catch(e){}
+    t.remove();
+  }
+}
+$('btnCopy').onclick=()=>{const l=inviteLink();if(l)copyText(l,()=>{$('btnCopy').textContent='✅ Скопировано';setTimeout(()=>$('btnCopy').textContent='📋 Копировать ссылку',1500)})};
+$('btnShare').onclick=()=>{
+  const l=inviteLink();if(!l)return;
+  if(navigator.share)navigator.share({title:'Ножи',text:'Заходи ко мне в «Ножи»! Код: '+NET.gameId,url:l}).catch(()=>{});
+  else $('btnCopy').onclick();
+};
+$('btnStart').onclick=()=>netSend({action:'start_game'});
+$('btnLobbyBack').onclick=()=>toMenu();
+
+function renderLobby(){
+  $('gameIdBox').textContent=NET.gameId;
+  $('serverShow').textContent=NET.via==='ws'?(PY_SERVER?location.host:wsUrl()):'напрямую (P2P), сервер — '+(NET.host?'это устройство':'устройство создателя игры');
+  const link=inviteLink();
+  $('linkBox').style.display=link?'':'none';
+  if(link)$('joinLink').textContent=link;
+  $('btnShare').style.display=navigator.share?'':'none';
+  const ids=Object.keys(NET.slots).sort((a,b)=>+a.slice(1)-+b.slice(1));
+  $('slotList').innerHTML='';
+  const bots=NET.opts&&NET.opts.bots;
+  for(const id of ids){
+    const s=NET.slots[id],row=document.createElement('div');row.className='slot';
+    const dot=document.createElement('span');dot.className='dot';dot.style.background=s.kind==='empty'?'#3a4560':COLORS[s.skin&&s.skin.color||0];
+    const nm=document.createElement('span');nm.className='nm';
+    nm.textContent=(s.kind==='empty'?(bots?'🤖 бот (если никто не придёт)':'свободно'):(s.name||'Игрок'))+(id===NET.slot?' — вы':'');
+    const st=document.createElement('span');st.className='st';
+    st.textContent=s.kind==='empty'?'ждём':s.online?'✅ на месте':'⏸ отошёл';
+    row.append(dot,nm,st);$('slotList').append(row);
+  }
+  const leader=NET.leader===NET.slot,free=ids.filter(i=>NET.slots[i].kind==='empty').length;
+  $('btnStart').style.display=leader?'':'none';
+  $('lobbyHint').textContent=free?
+    (leader?'Отправь друзьям код или ссылку. Игра начнётся сама, когда все места займут, или нажми «Начать»'+(bots?' — свободные места займут боты.':'.'):'Ждём игроков. Начать может создатель игры.'):'Все на месте!';
+}
+function applySlots(m){
+  NET.slots=m.slots||NET.slots;NET.leader=m.leader;
+  if(m.score&&G)G.score=m.score;
+  if($('lobby').classList.contains('active'))renderLobby();
+  if(G&&$('roundEnd').classList.contains('show'))$('btnRestart').style.display=G.matchOver&&NET.leader===NET.slot?'':'none';
+}
+function enterRound(m){
+  mode=NET.solo?'solo':'online';
+  show('game');
+  initRound(m);
+}
+// Вернулись после обрыва (или вошли в уже идущую игру)
+function handleResumed(m){
+  NET.retry=0;NET.slot=m.slot;NET.gameId=m.game_id;NET.started=m.started;NET.opts=m.opts||NET.opts;
+  saveSession();
+  applySlots(m);
+  if(!m.started){renderLobby();show('lobby');return}
+  const same=G&&G.round===m.round&&$('game').classList.contains('active');
+  if(same){
+    // тот же раунд: просто продолжаем — следующий снимок всё поправит
+    G.myI=G.order.indexOf(NET.slot);G.disconnected=false;
+    return;
+  }
+  enterRound(m);
+}
+function onNet(m){
+  switch(m.type){
+    case'joined':
+      NET.slot=m.slot;NET.gameId=m.game_id;NET.token=m.token;
+      if(NET.solo&&HOST.hub&&!HOST.gid)HOST.gid=m.game_id;
+      saveSession();break;
+    case'lobby':
+      NET.opts=m.opts;NET.gameId=m.game_id;applySlots(m);
+      if(!$('lobby').classList.contains('active')){renderLobby();show('lobby');netStatus('')}
+      break;
+    case'slots':applySlots(m);break;
+    case'resumed':handleResumed(m);break;
+    case'resume_failed':case'game_closed':
+      clearSession();
+      if(G&&mode==='online'){G.disconnected=true;toast(m.type==='game_closed'?'Создатель закрыл игру':'Эта игра уже закрыта',4000);setTimeout(()=>{if(G&&G.disconnected)toMenu()},2500)}
+      else if(mode!=='solo'){show('menu');netStatus(m.type==='game_closed'?'Создатель закрыл игру.':'Эта игра уже закрыта — создайте новую.')}
+      break;
+    case'pong':
+      NET.pongAt=Date.now();
+      if(m.n&&NET.pings[m.n]){const r=performance.now()-NET.pings[m.n];delete NET.pings[m.n];NET.rtt=NET.rtt*0.7+r*0.3}
+      break;
+    case'round':
+      NET.retry=0;NET.started=true;
+      enterRound(m);
+      if(G.myI>=0)G.f[G.myI].kills=0;
+      break;
+    case'snap':if(G&&G.last)applySnap(m);break;
+    case'round_end':
+      if(!G)break;
+      showRoundEnd(m);
+      if(G.myI>=0){
+        const me=G.f[G.myI],won=m.winner===NET.slot,mine=m.standings.find(s=>s.sid===NET.slot);
+        bumpStats(()=>{stats.rounds++;if(won)stats.wins++;if(mine)stats.bestKills=Math.max(stats.bestKills,mine.kills)});
+        if(won){sfx('win');vibrate([50,50,50,50,200])}
+      }
+      break;
+    case'emote':if(G&&G.f[m.i]){G.f[m.i].emote=m.e;G.f[m.i].emoteT=performance.now()}break;
+    case'error':netStatus('⚠️ '+m.message);if($('game').classList.contains('active'))toast(m.message);break;
+  }
+}
+// Плашка о состоянии связи (рисуется на поле)
+function netNotice(){
+  if(mode!=='online'||!G)return null;
+  if(G.disconnected)return'⚠️ Игра закрыта';
+  if(!netOnline())return'🔄 Переподключение…';
+  const away=Object.keys(NET.slots).filter(id=>id!==NET.slot&&NET.slots[id].kind==='human'&&!NET.slots[id].online);
+  if(away.length)return'⏸ '+away.map(id=>NET.slots[id].name||'Игрок').join(', ')+' отош'+(away.length>1?'ли':'ёл');
+  if(performance.now()-G.lastAt>1500)return'🐢 Создатель игры не отвечает…';
+  return null;
+}
+
+(function(){
+  // Открыли ссылку-приглашение — сразу входим в игру:
+  //   …/#p2p=ABC123 — P2P,  http://адрес:8766/#ABC123 — через server.py
+  const h=decodeURIComponent(location.hash.slice(1)).trim().toUpperCase();
+  const p2p=/^P2P=([A-Z0-9]{6})$/.exec(h);
+  if(p2p||(SERVED&&/^[A-Z0-9]{6}$/.test(h))){
+    history.replaceState(null,'',location.pathname+location.search);
+    if(p2p)setVia('p2p');else{PY_SERVER=true;setVia('ws')}
+    $('joinId').value=p2p?p2p[1]:h;netJoin();return;
+  }
+  // Вкладку перезагрузили посреди игры — возвращаемся в неё
+  const s=loadSession();
+  if(!s)return;
+  if(s.via==='p2p')setVia('p2p');
+  else{
+    // через server.py: продолжаем, только если страница открыта с того же сервера
+    if(SERVED&&s.ws!==AUTO_WS)return;
+    if(SERVED)PY_SERVER=true;else serverIp=s.ws;
+    setVia('ws');
+  }
+  NET.gameId=s.gid;NET.slot=s.slot;NET.token=s.token;NET.host=!!s.host;
+  netStatus('Возвращаемся в игру '+s.gid+'…');
+  if(!s.host){scheduleReconnect(0);return}
+  // мы были хостом: поднимаем комнату из снимка, гости переподключатся сами
+  const seq=NET.createSeq;
+  hostRestore(s.gid).then(({listener,game})=>{
+    if(seq!==NET.createSeq||NET.gameId!==s.gid){listener.destroy();return}
+    hostSetup(listener,s.gid,game);
+    scheduleReconnect(0);
+  },err=>{
+    if(seq!==NET.createSeq)return;
+    clearSession();lsDel(HOST_KEY);
+    netStatus(err==='no-snapshot'?'Игра '+s.gid+' закрыта — создайте новую.':hostErrText(err));
+  });
+})();
+
+// PWA: игру можно «установить» на экран телефона и запускать без адресной строки
+if('serviceWorker' in navigator&&window.isSecureContext&&SERVED)navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+setSound(soundOn);
+renderProgress();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
