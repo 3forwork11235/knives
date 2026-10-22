@@ -270,7 +270,7 @@ body.touch #btnDash{display:block}
 <script src="room.js"></script>
 <script>
 'use strict';
-const VERSION='1.4'; // видно в углу меню — по нему ясно, что на устройстве свежая версия
+const VERSION='1.5'; // видно в углу меню — по нему ясно, что на устройстве свежая версия
 const $=id=>document.getElementById(id);
 $('ver').textContent='версия '+VERSION;
 const RULES=KnivesHub.rules;
@@ -1457,16 +1457,185 @@ function peerTransport(gid){
   return t;
 }
 
+// --- Запасной канал: публичный сервер сообщений (MQTT поверх обычного защищённого WebSocket) ---
+// Бывает, что путь между устройствами WebRTC находит, а сам канал не открывается: оператор, VPN или фильтр
+// провайдера пропускают маленькие служебные пакеты, но режут зашифрованный поток WebRTC. Тогда гость
+// через несколько секунд сам переходит на этот канал: сообщения идут через сервер, как обычный сайт.
+// Создатель игры слушает оба пути сразу. Темы: <база>/h — создателю, <база>/g/<cid> — конкретному гостю.
+const MQTT_URLS=['https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js','https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js'];
+const MQ_BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081/mqtt'];
+const MQ_SWITCH=6000; // через сколько мс без открытого канала P2P гость пробует запасной
+let mqttLib=null;
+function loadMqtt(){
+  if(window.mqtt)return Promise.resolve();
+  if(mqttLib)return mqttLib;
+  mqttLib=new Promise((res,rej)=>{
+    const next=i=>{
+      if(i>=MQTT_URLS.length){mqttLib=null;rej('no-lib');return}
+      const s=document.createElement('script');s.src=MQTT_URLS[i];s.crossOrigin='anonymous';
+      s.onload=()=>window.mqtt?res():next(i+1);
+      s.onerror=()=>{s.remove();next(i+1)};
+      document.head.append(s);
+    };
+    next(0);
+  });
+  return mqttLib;
+}
+function mqTopic(gid){return'nozhi-knives/v1/'+gid}
+function mqParse(buf){try{return JSON.parse(buf.toString())}catch(e){return null}}
+// Гость: стучимся к создателю через все серверы сразу — работаем через тот, где он ответил первым
+// (это и самый быстрый сейчас путь); остальные соединения закрываем.
+function mqttTransport(gid){
+  const t=transport();t.kind='mq';
+  const cid=Math.random().toString(36).slice(2,12),base=mqTopic(gid),hello=JSON.stringify({c:cid,t:'o'}),bye=JSON.stringify({c:cid,t:'x'});
+  let c=null,tries=[],okT=null;
+  const drop=cl=>{try{cl.publish(base+'/h',bye);cl.end(false)}catch(e){}};
+  const fail=err=>{
+    clearInterval(t.ka);clearTimeout(okT);
+    for(const cl of tries)try{cl.end(true)}catch(e){}
+    tries=[];const old=c;c=null;if(old)try{old.end(true)}catch(e){}
+    tLost(t,err);
+  };
+  const lost=()=>{if(!c&&t.readyState===0&&tries.every(cl=>cl.__dead))fail(t.lastErr||'mq-fail')};
+  const start=()=>{
+    if(t.readyState===3)return;
+    for(const url of MQ_BROKERS){
+      const cl=mqtt.connect(url,{reconnectPeriod:0,connectTimeout:6000,clean:true,keepalive:20,will:{topic:base+'/h',payload:bye,qos:0}});
+      tries.push(cl);
+      cl.on('connect',()=>cl.subscribe(base+'/g/'+cid,{qos:0},()=>cl.publish(base+'/h',hello)));
+      cl.on('message',(tp,buf)=>{
+        const m=mqParse(buf);if(!m)return;
+        if(!c){
+          if(m.t!=='ok'||t.readyState!==0)return;
+          // победитель — этот сервер; с остальных уходим
+          c=cl;clearTimeout(okT);
+          for(const o of tries)if(o!==cl)drop(o);
+          tries=[cl];
+          // «я здесь» каждые 4 с — создатель понимает, что гость на связи, даже если тот ничего не шлёт
+          t.ka=setInterval(()=>{if(c===cl)cl.publish(base+'/h',JSON.stringify({c:cid,t:'k'}))},4000);
+          tOpen(t);
+          return;
+        }
+        if(c!==cl)return;
+        if(m.t==='m'){if(t.readyState===1&&t.onmessage)t.onmessage(m.d)}
+        else if(m.t==='x')fail('closed');
+      });
+      cl.on('error',()=>{t.lastErr='mq-error'});
+      cl.on('close',()=>{cl.__dead=true;if(c===cl)fail('closed');else lost()});
+    }
+    // ни на одном сервере создатель не ответил
+    okT=setTimeout(()=>{if(!c)fail('no-answer')},9000);
+  };
+  loadMqtt().then(start,()=>fail('no-lib'));
+  t.send=o=>{if(c&&t.readyState===1)c.publish(base+'/h',JSON.stringify({c:cid,t:'m',d:o}))};
+  t.close=()=>{
+    if(t.readyState===3)return;t.readyState=3;
+    clearInterval(t.ka);clearTimeout(okT);
+    for(const cl of tries)drop(cl);
+    tries=[];c=null;
+  };
+  return t;
+}
+// Гость в режиме P2P: сначала напрямую, а если канал не открылся — через запасной.
+// Кто откроется первым, тот и работает; второй закрываем.
+function hybridTransport(gid){
+  const t=transport();
+  let chosen=null,m=null;
+  const p=peerTransport(gid);
+  p.onstage=st=>{if(!chosen&&t.onstage)t.onstage(st)};
+  const choose=x=>{
+    if(chosen||t.readyState!==0){x.close();return}
+    chosen=x;t.kind=x.kind||'p2p';
+    if(x!==p)p.close();
+    if(m&&x!==m)m.close();
+    x.onmessage=msg=>{if(t.readyState===1&&t.onmessage)t.onmessage(msg)};
+    x.onclose=()=>tLost(t,x.err);
+    t.send=o=>x.send(o);
+    tOpen(t);
+  };
+  const lostBoth=()=>{
+    if(chosen||t.readyState===3)return;
+    if(p.readyState===3&&(!m||m.readyState===3)){
+      t.diag=p.diag;
+      tLost(t,m&&m.err==='no-answer'&&p.err!=='peer-unavailable'?'no-answer':p.err||(m&&m.err));
+    }
+  };
+  const startMq=()=>{
+    if(m||chosen||t.readyState===3)return;
+    if(t.onstage)t.onstage('backup');
+    m=mqttTransport(gid);
+    m.onopen=()=>choose(m);
+    m.onclose=lostBoth;
+  };
+  p.onopen=()=>choose(p);
+  p.onclose=()=>{if(!chosen){startMq();lostBoth()}};
+  const timer=setTimeout(startMq,MQ_SWITCH);
+  t.progressing=()=>!chosen&&((p.readyState===0&&!!p.progressing&&p.progressing())||(!!m&&m.readyState===0));
+  t.close=()=>{t.readyState=3;clearTimeout(timer);p.close();if(m)m.close()};
+  return t;
+}
+// Создатель игры: слушает запасной канал на всех серверах сразу (гость приходит туда, где получилось)
+function mqttListen(gid){
+  const base=mqTopic(gid);
+  const L={clients:[],guests:new Map(),dead:false,
+    destroy(){
+      L.dead=true;clearInterval(L.iv);
+      for(const g of L.guests.values())g.sess.closed();
+      L.guests.clear();
+      for(const c of L.clients)try{c.end(true)}catch(e){}
+    }};
+  loadMqtt().then(()=>{
+    if(L.dead)return;
+    MQ_BROKERS.forEach((url,bi)=>{
+      const c=mqtt.connect(url,{reconnectPeriod:3000,connectTimeout:8000,clean:true,keepalive:20});
+      L.clients.push(c);
+      c.on('connect',()=>c.subscribe(base+'/h',{qos:0}));
+      c.on('error',()=>{}); // недоступный сервер — не страшно, есть другие
+      c.on('message',(tp,buf)=>{
+        const m=mqParse(buf);
+        if(!m||typeof m.c!=='string'||m.c.length>24||!HOST.hub)return;
+        const key=bi+':'+m.c,out=base+'/g/'+m.c;
+        let g=L.guests.get(key);
+        if(m.t==='o'){
+          if(g){L.guests.delete(key);g.sess.closed()}
+          g={seen:Date.now(),counted:false};
+          g.sess=HOST.hub.connect({
+            send:o=>c.publish(out,JSON.stringify({t:'m',d:o})),
+            close:()=>setTimeout(()=>{c.publish(out,JSON.stringify({t:'x'}));if(L.guests.get(key)===g)L.guests.delete(key)},300),
+          });
+          L.guests.set(key,g);
+          c.publish(out,JSON.stringify({t:'ok'}));
+        }else if(!g){
+          // этого гостя мы уже отключили — пусть переподключится сразу, а не ждёт тишины
+          if(m.t==='m'||m.t==='k')c.publish(out,JSON.stringify({t:'x'}));
+          return;
+        }
+        else if(m.t==='k')g.seen=Date.now();
+        else if(m.t==='m'){
+          g.seen=Date.now();
+          // гость стучится через все серверы сразу — попыткой считаем только тот, через который он заговорил
+          if(!g.counted){g.counted=true;HOST.tries.push({ice:'backup',open:true,mq:true});if(HOST.tries.length>6)HOST.tries.shift();renderHostTries()}
+          g.sess.message(m.d);
+        }
+        else if(m.t==='x'){L.guests.delete(key);g.sess.closed()}
+      });
+    });
+  },()=>{});
+  // гость молчит дольше 15 с (свернул браузер, пропала сеть) — считаем, что отошёл
+  L.iv=setInterval(()=>{const now=Date.now();for(const [k,g] of L.guests)if(now-g.seen>15000){L.guests.delete(k);g.sess.closed()}},3000);
+  return L;
+}
+
 // --- хост: комната (room.js) живёт в браузере создателя игры ---
 // «Слушатель» (listener) — то, что принимает гостей (PeerJS или пересылка server.py); у обоих есть destroy().
 // Снимок комнаты сохраняется, чтобы игра пережила перезагрузку вкладки хоста.
 const HOST_KEY='knives_host';
-const HOST={listener:null,hub:null,gid:null,saveT:null,tries:[]};
+const HOST={listener:null,hub:null,gid:null,saveT:null,tries:[],mq:null};
 function renderHostTries(){
   const el=$('hostTries');if(!el)return;
   const t=HOST.tries;
   el.textContent=!t.length?'🔌 Пока никто не пытался подключиться.':
-    '🔌 Попытки подключения: '+t.map(r=>r.open?'✅ вошёл':r.ice==='failed'?'❌ сеть не пропустила':r.ice==='disconnected'?'⚠️ оборвалось':'⏳ '+r.ice).join(' · ');
+    '🔌 Попытки подключения: '+t.map(r=>r.open?(r.mq?'✅ вошёл (запасной канал)':'✅ вошёл'):r.ice==='failed'?'❌ сеть не пропустила':r.ice==='disconnected'?'⚠️ оборвалось':'⏳ '+r.ice).join(' · ');
 }
 // Таймер симуляции из Web Worker: в фоновой вкладке обычный setInterval замедляется до раза в секунду
 function workerEvery(fn,ms){
@@ -1548,6 +1717,7 @@ function hostAccept(dc){
 }
 function hostSetup(listener,gid,snap){
   HOST.listener=listener;HOST.gid=gid;HOST.tries=[];
+  if(listener&&listener.peer)HOST.mq=mqttListen(gid); // P2P: заодно слушаем запасной канал
   HOST.hub=new KnivesHub({
     log:m=>console.log(m),
     onChange:hostSave,
@@ -1565,13 +1735,14 @@ function hostSave(){
   },500);
 }
 function hostStop(){
-  const {listener,hub,gid,saveT}=HOST;
+  const {listener,hub,gid,saveT,mq}=HOST;
   if(!listener&&!hub)return;
-  Object.assign(HOST,{listener:null,hub:null,gid:null,saveT:null});
+  Object.assign(HOST,{listener:null,hub:null,gid:null,saveT:null,mq:null});
   if(saveT)clearTimeout(saveT);
   if(hub&&gid)hub.shutdown(gid); // гостям уходит «игра закрыта»
   if(hub)for(const id in hub.games)hub.shutdown(id);
   if(listener)setTimeout(()=>listener.destroy(),600);
+  if(mq)setTimeout(()=>mq.destroy(),600);
   lsDel(HOST_KEY);
 }
 function hostCreate(){
@@ -1627,7 +1798,7 @@ function makeTransport(gid){
     if(HOST.hub)return loopTransport();
     const t=transport();t.readyState=3;t.err='no-host';return t;
   }
-  return NET.via==='ws'?relayTransport(wsUrl(),gid):peerTransport(gid);
+  return NET.via==='ws'?relayTransport(wsUrl(),gid):hybridTransport(gid);
 }
 function openSocket(first){
   const t=makeTransport(first.game_id||NET.gameId);
@@ -1636,9 +1807,9 @@ function openSocket(first){
     return;
   }
   NET.conn=t;
-  const STAGES={offer:'ищем создателя игры',checking:'создатель ответил, прокладываем путь',connected:'путь найден, открываем канал',completed:'путь найден, открываем канал',disconnected:'связь прерывается, ждём',failed:'сеть не пропускает'};
+  const STAGES={backup:'напрямую не открылось, пробуем запасной канал',offer:'ищем создателя игры',checking:'создатель ответил, прокладываем путь',connected:'путь найден, открываем канал',completed:'путь найден, открываем канал',disconnected:'связь прерывается, ждём',failed:'сеть не пропускает'};
   t.onstage=st=>{if(NET.conn===t&&!NET.token&&STAGES[st])netStatus('🔄 Подключение к игре '+(first.game_id||NET.gameId)+': '+STAGES[st]+'…'+(joinTry&&joinTry.n?' (попытка '+(joinTry.n+1)+')':''))};
-  t.onopen=()=>{NET.pingAt=NET.pongAt=0;t.send(first);keepAwake()};
+  t.onopen=()=>{NET.route=t.kind||NET.via;NET.pingAt=NET.pongAt=0;t.send(first);keepAwake()};
   t.onmessage=onNet;
   t.onclose=()=>{if(NET.conn!==t)return;NET.conn=null;NET.err=t.err;NET.diag=t.diag||null;socketLost()};
 }
@@ -1773,7 +1944,7 @@ const JOIN_WAIT=120e3;
 function joinRetry(){
   const j=joinTry;
   if(!j||j.seq!==NET.createSeq||NET.token||NET.conn)return false;
-  if(Date.now()-j.started>JOIN_WAIT||!/^ice-|timeout|no-answer|negotiation|peer-unavailable|closed|server|socket|network/.test(NET.err||'closed')){joinTry=null;return false}
+  if(Date.now()-j.started>JOIN_WAIT||!/^ice-|^mq-|timeout|no-answer|negotiation|peer-unavailable|closed|server|socket|network/.test(NET.err||'closed')){joinTry=null;return false}
   j.n++;
   const sec=Math.round((Date.now()-j.started)/1000);
   netStatus('⏳ '+whyText()+' Пробуем ещё… ('+sec+' с, попытка '+j.n+')\n'+diagLine()+(sameDeviceHost(j.first.game_id)?
@@ -1855,7 +2026,8 @@ $('btnLobbyBack').onclick=()=>toMenu();
 
 function renderLobby(){
   $('gameIdBox').textContent=NET.gameId;
-  $('serverShow').textContent=NET.via==='ws'?(PY_SERVER?location.host:wsUrl()):'напрямую (P2P), сервер — '+(NET.host?'это устройство':'устройство создателя игры');
+  $('serverShow').textContent=NET.via==='ws'?(PY_SERVER?location.host:wsUrl()):
+    (!NET.host&&NET.route==='mq'?'запасной канал (через сервер сообщений)':'напрямую (P2P)')+', сервер — '+(NET.host?'это устройство':'устройство создателя игры');
   const link=inviteLink();
   $('linkBox').style.display=link?'':'none';
   if(link)$('joinLink').textContent=link;
