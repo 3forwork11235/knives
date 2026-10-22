@@ -37,7 +37,7 @@ label.chk{display:inline-flex;gap:8px;align-items:center;margin-right:16px;curso
 label.chk input{width:20px;height:20px}
 .rules{color:var(--muted);font-size:14px;line-height:1.55;margin:0;padding-left:18px}
 .rules b{color:var(--text)}
-.netStatus{color:var(--muted);font-size:13px;margin:8px auto;min-height:16px;word-break:break-word;max-width:640px}
+.netStatus{color:var(--muted);font-size:13px;margin:8px auto;min-height:16px;word-break:break-word;max-width:640px;white-space:pre-line}
 .btn.narrow{flex:0 1 320px;width:min(320px,100%)}
 /* этапы меню */
 .steps{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:44px 0 0;font-size:13px}
@@ -231,6 +231,10 @@ body.touch #btnDash{display:block}
   <p class="sub" style="margin-top:10px">Связь: <span id="serverShow"></span></p>
   <div id="slotList"></div>
   <p class="sub" id="lobbyHint"></p>
+  <div class="card" id="hostTip" style="display:none;border:1px solid var(--gold);font-size:14px;line-height:1.5">
+    📌 <b>Твоё устройство — сервер этой игры.</b> Отправь ссылку и <b>сразу вернись сюда</b>: пока ты в мессенджере, телефон
+    «замораживает» браузер, и друзья не могут подключиться. Не открывай ссылку на этом же телефоне — открывай её на другом.
+  </div>
   <div class="row center"><button class="btn big b-green" id="btnStart">▶ Начать</button><button class="btn big" id="btnLobbyBack">← В меню</button></div>
 </div>
 
@@ -1595,6 +1599,9 @@ function lostText(){
   if(NET.via==='ws')return'❌ Нет соединения с сервером. Проверьте, что сервер запущен'+(PY_SERVER?' и устройство в той же сети.':' и адрес верный.');
   if(NET.err==='no-lib')return'❌ Не удалось загрузить модуль связи — нужен интернет.';
   const code=' (код: '+(NET.err||'closed')+')';
+  // ответа нет совсем — почти всегда создатель свернул браузер, а не сеть виновата
+  if(NET.err==='timeout')
+    return'❌ Игра найдена, но создатель игры не отвечает. Попросите его открыть игру и не сворачивать браузер, потом нажмите «В бой!» ещё раз. Если не поможет — попробуйте другую сеть.'+code;
   if(/^ice-|timeout|negotiation/.test(NET.err||''))
     return'❌ Игра найдена, но сеть не пропустила соединение между устройствами. Попробуйте другую сеть (например, Wi-Fi вместо мобильного интернета).'+code;
   if(/network|server-error|socket|no-signal/.test(NET.err||''))return'❌ Нет связи с сервером знакомств (PeerJS) — проверьте интернет.'+code;
@@ -1602,6 +1609,7 @@ function lostText(){
 }
 function socketLost(){
   if(NET.token&&NET.gameId){scheduleReconnect();return}
+  if(joinRetry())return;
   netStatus(lostText());
   if($('lobby').classList.contains('active'))show('rules'); // там видно, что пошло не так, и можно нажать «В бой!» ещё раз
 }
@@ -1653,8 +1661,21 @@ setInterval(()=>{
 },250);
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){if(mode==='solo')setPaused(true)}
-  else{resumeNow();if(NET.conn)keepAwake()}
+  else{resumeNow();hostWake();if(NET.conn)keepAwake()}
 });
+// Создатель игры вернулся в браузер: связь с сервером знакомств могла оборваться, пока вкладка спала —
+// восстанавливаем сразу, иначе новые гости не найдут игру
+function hostWake(){
+  const L=HOST.listener,p=L&&L.peer,gid=HOST.gid;
+  if(!p||!gid)return;
+  if(p.destroyed){
+    // адрес игры потерян — регистрируемся заново под тем же кодом
+    let tries=0;
+    const again=()=>peerListen(gid).then(nl=>{if(HOST.listener===L)HOST.listener=nl;else nl.destroy()},
+      err=>{if(HOST.listener===L&&err==='unavailable-id'&&++tries<10)setTimeout(again,2500)});
+    again();
+  }else if(p.disconnected){try{p.reconnect()}catch(e){}}
+}
 addEventListener('pageshow',resumeNow);
 addEventListener('focus',resumeNow);
 addEventListener('online',resumeNow);
@@ -1690,8 +1711,27 @@ function soloStart(){
 function netJoin(){
   const id=$('joinId').value.trim().toUpperCase();
   if(!/^[A-Z0-9]{6}$/.test(id)){netStatus('Введите код игры из 6 символов');return}
-  netConnect({action:'join_game',game_id:id,name:myName(),skin:mySkin()});
+  const first={action:'join_game',game_id:id,name:myName(),skin:mySkin()};
+  netConnect(first);
+  joinTry={first,started:Date.now(),n:0,seq:NET.createSeq};
 }
+// Вход по ссылке не сдаётся с первого раза: чаще всего создатель игры просто отошёл —
+// отправлял ссылку в мессенджере, а телефон «заморозил» его браузер. Пробуем снова, пока он не вернётся.
+let joinTry=null;
+const JOIN_WAIT=120e3;
+function joinRetry(){
+  const j=joinTry;
+  if(!j||j.seq!==NET.createSeq||NET.token||NET.conn)return false;
+  if(Date.now()-j.started>JOIN_WAIT||!/^ice-|timeout|negotiation|peer-unavailable|closed|server|socket|network/.test(NET.err||'closed')){joinTry=null;return false}
+  j.n++;
+  const sec=Math.round((Date.now()-j.started)/1000);
+  netStatus((NET.err==='peer-unavailable'?'⏳ Игра '+j.first.game_id+' пока не отвечает':'⏳ Создатель игры не отвечает')+
+    ' — наверное, свернул браузер. Ждём, пока он вернётся в игру… ('+sec+' с)'+(sameDeviceHost(j.first.game_id)?
+    '\n⚠️ Похоже, игра создана на этом же устройстве. На телефоне вкладка создателя засыпает, когда открываешь другую, — открой ссылку на другом телефоне или компьютере.':''));
+  setTimeout(()=>{if(joinTry===j&&j.seq===NET.createSeq&&!NET.conn&&!NET.token)openSocket(j.first)},2000);
+  return true;
+}
+function sameDeviceHost(gid){try{const h=JSON.parse(lsGet(HOST_KEY)||'null');return !!(h&&h.game&&h.game.id===gid&&Date.now()-h.ts<6*3600e3)}catch(e){return false}}
 // --- этапы меню: боец → режим → правила на фоне арены → «В бой!» ---
 let pending=null; // что сделает «В бой!»: 'solo' | 'create' | 'join'
 const DIFF_NAMES={easy:'лёгкие',normal:'средние',hard:'сильные'};
@@ -1773,6 +1813,8 @@ function renderLobby(){
   $('btnStart').style.display=leader?'':'none';
   $('lobbyHint').textContent=free?
     (leader?'Отправь друзьям код или ссылку. Игра начнётся сама, когда все места займут, или нажми «Начать»'+(bots?' — свободные места займут боты.':'.'):'Ждём игроков. Начать может создатель игры.'):'Все на месте!';
+  // пока создатель в другом приложении, его телефон «замораживает» игру — гости не подключатся
+  $('hostTip').style.display=NET.host&&NET.via==='p2p'&&free?'':'none';
 }
 function applySlots(m){
   NET.slots=m.slots||NET.slots;NET.leader=m.leader;
@@ -1802,6 +1844,7 @@ function handleResumed(m){
 function onNet(m){
   switch(m.type){
     case'joined':
+      joinTry=null;
       NET.slot=m.slot;NET.gameId=m.game_id;NET.token=m.token;
       if(NET.solo&&HOST.hub&&!HOST.gid)HOST.gid=m.game_id;
       saveSession();break;
