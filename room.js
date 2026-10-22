@@ -27,8 +27,10 @@ const PICK_R=16,MAGNET_R=170;
 const POWERS=['S','H','M','R','B']; // скорость, щит, магнит, ярость (быстрое вращение), связка ножей
 const POWER_T={S:8,H:20,M:10,R:8};
 function orbitR(k){return Math.max(40,18+k*13/(2*Math.PI))}
-function speedOf(k){return Math.max(170,250-k*1.0)}
-function arenaR(n){return Math.round(700+95*n)}
+// маленькие заметно быстрее больших — у них есть шанс убежать и обойти (0 ножей ≈ 290, 10 ≈ 230, 40 ≈ 180)
+function speedOf(k){return 172+118*Math.exp(-k/14)}
+function arenaR(n){return Math.round(950+125*n)}
+const KNIFE_DENSITY=1.6e-5; // сколько ножей на земле на единицу площади
 
 const COLORS=12;
 const HATS=['none','cap','bandana','crown','viking','wizard','pirate'];
@@ -44,12 +46,12 @@ const BOT_NAMES=['Шустрик','Кузя','Тесак','Вжух','Колюч
 
 // сложность ботов
 const DIFF={
-  easy:  {react:0.34,vision:480,err:0.7, dash:0.12,aggro:0.55,greed:0.8},
-  normal:{react:0.2, vision:650,err:0.32,dash:0.45,aggro:0.85,greed:1},
-  hard:  {react:0.1, vision:850,err:0.1, dash:0.85,aggro:1.15,greed:1.25},
+  easy:  {react:0.34,vision:560,err:0.7, dash:0.12,aggro:0.55,greed:0.8},
+  normal:{react:0.2, vision:760,err:0.32,dash:0.45,aggro:0.85,greed:1},
+  hard:  {react:0.1, vision:980,err:0.1, dash:0.85,aggro:1.15,greed:1.25},
 };
 // сужение зоны: ожидание, сужение (с) и до какой доли арены
-const ZONE_PLAN=[[20,16,0.66],[14,14,0.42],[12,12,0.24],[10,12,0.11],[8,16,0]];
+const ZONE_PLAN=[[32,22,0.7],[24,20,0.48],[20,18,0.3],[16,16,0.16],[12,14,0.07],[8,18,0]];
 const ZONE_MUL={fast:0.6,normal:1,slow:1.5};
 
 function randBytes(n){const b=new Uint8Array(n);crypto.getRandomValues(b);return b}
@@ -111,11 +113,11 @@ function newRound(g){
   const ids=Object.keys(g.slots).filter(s=>g.slots[s].kind!=='empty'&&g.slots[s].kind!=='gone');
   const n=ids.length,R=arenaR(Math.max(n,4));
   const r={phase:'count',t:0,phaseT:COUNTDOWN,R,bushes:[],pk:new Map(),pkId:1,f:{},order:ids,
-    add:[],del:[],ev:[],winner:null,standings:null,spawnT:0,powerT:4,snapN:0,deaths:0};
+    add:[],del:[],ev:[],winner:null,standings:null,spawnT:0,powerT:4,snapN:0,deaths:0,chestT:rnd(35,55),chest:false,firstBlood:false};
   g.round=(g.round||0)+1;
   // кусты — по кругу, не в центре
   if(g.opts.bushes){
-    const cnt=Math.round(4+n*0.9);
+    const cnt=Math.round(R*R/170000); // кустов — по площади арены
     for(let i=0;i<cnt*4&&r.bushes.length<cnt;i++){
       const [x,y]=randInCircle(0,0,R-120),rad=rnd(48,82);
       if(Math.hypot(x,y)<160)continue;
@@ -139,7 +141,8 @@ function newRound(g){
   r.zone={cx:0,cy:0,r:R,fx:0,fy:0,fr:R,tx:0,ty:0,tr:R,stage:-1,shrinking:false,st:0,mul};
   nextZone(r);
   // ножи на земле
-  for(let i=0;i<n*10;i++){const [x,y]=randInCircle(0,0,R-40);addPickup(r,x,y,'k',false)}
+  const start=Math.round(Math.PI*R*R*KNIFE_DENSITY);
+  for(let i=0;i<start;i++){const [x,y]=randInCircle(0,0,R-40);addPickup(r,x,y,'k',false)}
   if(g.opts.powers)for(let i=0;i<Math.ceil(n/3);i++){const [x,y]=randInCircle(0,0,R*0.8);addPickup(r,x,y,POWERS[Math.floor(Math.random()*POWERS.length)],false)}
   r.add=[];
   g.r=r;
@@ -221,7 +224,7 @@ function botThink(g,f){
       const d=dist(f.x,f.y,p[1],p[2]);
       if(d>D.vision)continue;
       if(dist(p[1],p[2],z.cx,z.cy)>z.r)continue; // за зоной не лезем
-      const s=(p[3]==='k'?1:3.5)/(d+40);
+      const s=(p[3]==='k'?1:p[3]==='G'?9:3.5)/(d+40);
       if(s>ps){ps=s;pb=p}
     }
     if(pb)push(pb[1],pb[2],(target?0.7:1.2)*D.greed);
@@ -437,6 +440,7 @@ class KnivesHub{
         if(t==='k')f.k++;
         else{
           if(t==='B')f.k=Math.min(MAX_K,f.k+5);
+          else if(t==='G'){f.k=Math.min(MAX_K,f.k+12);f.spinT=6;f.shield=true;f.shieldT=POWER_T.H} // золотой сундук
           else if(t==='S')f.speedT=POWER_T.S;
           else if(t==='M')f.magT=POWER_T.M;
           else if(t==='R')f.spinT=POWER_T.R;
@@ -451,13 +455,21 @@ class KnivesHub{
     if(r.spawnT<=0){
       r.spawnT=0.5;
       let knives=0;for(const p of r.pk.values())if(p[3]==='k')knives++;
-      const want=r.order.length*8;
+      // ножей на земле — по площади зоны: зона сжимается, ножей меньше
+      const n=r.order.length,want=Math.max(n*4,Math.min(n*16,Math.round(Math.PI*z.r*z.r*KNIFE_DENSITY*0.8)));
       for(let i=0;i<3&&knives<want;i++,knives++){const [x,y]=randInCircle(z.cx,z.cy,Math.max(30,z.r*0.95));addPickup(r,x,y,'k')}
     }
     if(g.opts.powers&&(r.powerT-=TICK)<=0){
       r.powerT=rnd(5,9);
       let pw=0;for(const p of r.pk.values())if(p[3]!=='k')pw++;
       if(pw<Math.ceil(r.order.length/3)+1){const [x,y]=randInCircle(z.cx,z.cy,Math.max(30,z.r*0.85));addPickup(r,x,y,POWERS[Math.floor(Math.random()*POWERS.length)])}
+    }
+    // золотой сундук: один за раунд, появляется в будущем круге зоны — за него стоит побороться
+    if(!r.chest&&(r.chestT-=TICK)<=0){
+      r.chest=true;
+      const [x,y]=randInCircle(z.tx,z.ty,Math.max(40,z.tr*0.5));
+      const p=addPickup(r,x,y,'G');
+      r.ev.push(['g',p[1],p[2]]);
     }
     this.checkEnd(g);
   }
@@ -481,7 +493,9 @@ class KnivesHub{
     scatter(r,vic.x,vic.y,drop,orbitR(vic.k)+30);
     vic.lastK=vic.k;vic.k=0;
     if(killer){killer.kills++;const s=g.score[killer.sid];if(s)s.kills++}
-    r.ev.push(['x',killer?killer.i:-1,vic.i,Math.round(vic.x),Math.round(vic.y)]);
+    // серия (выбитых за раунд) и «первая кровь» — для объявлений на экране
+    const first=!!killer&&!r.firstBlood;if(killer)r.firstBlood=true;
+    r.ev.push(['x',killer?killer.i:-1,vic.i,Math.round(vic.x),Math.round(vic.y),killer?killer.kills:0,first?1:0]);
   }
   checkEnd(g){
     const r=g.r;

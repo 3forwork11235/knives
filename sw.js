@@ -1,7 +1,7 @@
 // Service worker «Ножей»: игра открывается и без сети (игра с ботами, повторный запуск с иконки).
 // Свои файлы — сначала из сети, чтобы обновления приходили сразу; без сети — из кэша.
 // Модуль связи PeerJS (с CDN) — из кэша.
-const CACHE='nozhi-v7'; // новое имя — старый кэш удалится при обновлении
+const CACHE='nozhi-v8'; // новое имя — старый кэш удалится при обновлении
 const SHELL=['./','./index.html','./room.js','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png'];
 const PEERJS=['https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js','https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js'];
 
