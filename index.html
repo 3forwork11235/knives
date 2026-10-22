@@ -37,7 +37,42 @@ label.chk{display:inline-flex;gap:8px;align-items:center;margin-right:16px;curso
 label.chk input{width:20px;height:20px}
 .rules{color:var(--muted);font-size:14px;line-height:1.55;margin:0;padding-left:18px}
 .rules b{color:var(--text)}
-#netStatus{color:var(--muted);font-size:13px;margin-top:8px;min-height:16px;word-break:break-word}
+.netStatus{color:var(--muted);font-size:13px;margin:8px auto;min-height:16px;word-break:break-word;max-width:640px}
+.btn.narrow{flex:0 1 320px;width:min(320px,100%)}
+/* этапы меню */
+.steps{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:44px 0 0;font-size:13px}
+.steps span{padding:4px 10px;border-radius:20px;background:var(--panel);color:var(--muted)}
+.steps span.on{background:var(--gold);color:#1b1b22;font-weight:700}
+.steps span.done{color:var(--text)}
+.modes{display:flex;flex-direction:column;gap:10px;max-width:640px;margin:0 auto}
+.mode{display:flex;flex-direction:column;gap:4px;text-align:left;padding:16px 18px;border-radius:14px;border:0;cursor:pointer;color:#fff;font-family:inherit;font-size:15px;touch-action:manipulation}
+.mode b{font-size:19px}.mode span{opacity:.85}
+.mode.m-green{background:linear-gradient(135deg,#2fb36d,#1f7d4b)}
+.mode.m-blue{background:linear-gradient(135deg,#3b8fe0,#2a5fa8)}
+.mode.m-red{background:linear-gradient(135deg,#3a2a3a,#2a2236);cursor:default}
+button.mode:hover{filter:brightness(1.1)}
+details.card summary{cursor:pointer;font-weight:600;font-size:16px;padding:2px 0}
+details.card[open] summary{margin-bottom:10px}
+/* правила поверх живой арены */
+#rules.active{position:fixed;inset:0;max-width:none;margin:0;padding:0;background:#0d120e;overflow:hidden}
+#demo{position:absolute;inset:0;width:100%;height:100%;display:block}
+.rulesWrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+  padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));overflow:auto}
+.rulesBox{background:rgba(16,21,31,.78);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);border-radius:16px;padding:14px 18px;max-width:600px;width:100%;margin:auto 0 12px;text-align:left}
+.rulesBox .steps{margin:0 0 8px}
+.rulesBox h2{margin:4px 0 2px;text-align:center;font-size:clamp(22px,5vw,30px)}
+.rulesBox .sub{text-align:center;margin-bottom:8px}
+.rulesBox .rules{color:#d6dcea}
+.rulesBottom{width:100%;max-width:600px;text-align:center}
+.rulesBottom .netStatus{background:rgba(16,21,31,.7);border-radius:8px;padding:0 8px;color:#e0e6f2}
+.rulesBottom .netStatus:empty{background:none}
+.btn.fight{font-size:22px;padding:16px 22px;flex:2 1 220px;box-shadow:0 6px 24px rgba(47,179,109,.45);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{transform:scale(1.04)}}
+/* достижения — кнопка в углу и окно */
+#btnAch{position:fixed;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));z-index:15;--s:44px}
+#achBox{position:fixed;inset:0;z-index:25;display:none;align-items:center;justify-content:center;background:rgba(5,8,14,.6);padding:12px}
+#achBox.show{display:flex}
+#achBox .rebox{text-align:left}#achBox h2{text-align:center}
 #serverInfo{color:var(--muted);font-size:13px;margin-bottom:10px}
 .fighter{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 #preview{width:150px;height:150px;flex:none;background:radial-gradient(circle,#2f4a33 0,#22352a 70%);border-radius:50%}
@@ -89,13 +124,14 @@ body.touch #btnDash{display:block}
 </head>
 <body>
 
-<!-- ============ Меню ============ -->
-<div id="menu" class="screen active">
-  <h1>🔪 Ножи</h1>
-  <p class="sub">Собирай ножи, ломай чужие и останься последним на арене</p>
+<!-- ============ Меню: 1 — боец, 2 — режим, 3 — правила на фоне арены ============ -->
+<button class="ibtn" id="btnAch" title="Достижения">🏅</button>
 
+<div id="menu" class="screen active">
+  <div class="steps"><span class="on">1 · Боец</span><span>2 · Режим</span><span>3 · В бой</span></div>
+  <h1>🔪 Ножи</h1>
+  <p class="sub">Создай своего бойца</p>
   <div class="card">
-    <h3>Твой боец</h3>
     <div class="fighter">
       <canvas id="preview" width="300" height="300"></canvas>
       <div class="fcol">
@@ -108,22 +144,27 @@ body.touch #btnDash{display:block}
       </div>
     </div>
   </div>
+  <div class="netStatus"></div>
+  <div class="row center"><button class="btn big b-green narrow" id="btnNext">Далее →</button></div>
+</div>
 
-  <div class="card">
-    <h3>Играть</h3>
-    <div class="row">
-      <button class="btn big b-green" id="btnSolo">🤖 Против ботов</button>
-      <button class="btn big b-blue" id="btnCreate">🌐 Создать онлайн-игру</button>
+<div id="modes" class="screen">
+  <div class="steps"><span class="done">1 · Боец</span><span class="on">2 · Режим</span><span>3 · В бой</span></div>
+  <h1>Режим игры</h1>
+  <p class="sub">Выбери, как будешь играть</p>
+  <div class="modes">
+    <button class="mode m-green" id="mSolo"><b>🤖 Против ботов</b><span>Ты и боты на одном устройстве. Интернет не нужен</span></button>
+    <button class="mode m-blue" id="mCreate"><b>🌐 Создать онлайн-игру</b><span>Позови друзей по ссылке — до 16 бойцов, пустые места займут боты</span></button>
+    <div class="mode m-red"><b>🔗 Войти по коду</b><span>Друг уже создал игру? Введи его код</span>
+      <div class="row" style="margin-top:8px">
+        <input id="joinId" type="text" maxlength="6" placeholder="Код игры" autocapitalize="characters" autocomplete="off" style="flex:1 1 140px;text-transform:uppercase;letter-spacing:3px">
+        <button class="btn b-red" id="btnJoin">Войти</button>
+      </div>
     </div>
-    <div class="row" style="margin-top:10px">
-      <input id="joinId" type="text" maxlength="6" placeholder="Код игры" autocapitalize="characters" autocomplete="off" style="flex:1 1 150px;text-transform:uppercase;letter-spacing:3px">
-      <button class="btn b-red" id="btnJoin">Войти</button>
-    </div>
-    <div id="netStatus"></div>
   </div>
-
-  <div class="card">
-    <h3>⚙️ Настройки боя</h3>
+  <div class="netStatus"></div>
+  <details class="card">
+    <summary>⚙️ Настройки боя</summary>
     <div class="grid">
       <label>Бойцов на арене<select id="optSize">
         <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
@@ -137,31 +178,46 @@ body.touch #btnDash{display:block}
       <label class="chk"><input type="checkbox" id="optPowers" checked>Бонусы</label>
       <label class="chk"><input type="checkbox" id="optBushes" checked>Кусты</label>
     </div>
-  </div>
-
-  <div class="card">
-    <h3>📡 Связь для онлайн-игры</h3>
+  </details>
+  <details class="card">
+    <summary>📡 Связь для онлайн-игры</summary>
     <div id="serverInfo"></div>
     <div class="row"><select id="netVia" style="flex:1"><option value="p2p">Напрямую (P2P) — через интернет</option><option value="ws">Через сервер на компьютере (Wi-Fi)</option></select></div>
     <div class="row" id="serverRow" style="margin-top:8px"><input id="serverIp" type="text" placeholder="192.168.1.5:8766" style="flex:1 1 160px"><button class="btn" id="btnSaveServer">Сохранить</button></div>
-  </div>
+  </details>
+  <div class="row center"><button class="btn big narrow" id="btnBackChar">← Мой боец</button></div>
+</div>
 
-  <div class="card"><h3>🏅 Достижения</h3><div id="progress"></div></div>
-
-  <div class="card">
-    <h3>📖 Как играть</h3>
-    <ul class="rules">
-      <li><b>Движение:</b> на телефоне веди пальцем по экрану — джойстик появится под пальцем. На компьютере — мышь или WASD / стрелки.</li>
-      <li><b>⚡ Рывок</b> — кнопка справа внизу, на компьютере — пробел или клик.</li>
-      <li>Вокруг тебя крутятся ножи. <b>Подбирай ножи</b> с земли — их станет больше, а круг шире.</li>
-      <li><b>Нож о нож</b> — оба теряют по ножу. <b>Нож по телу</b> — соперник выбывает и роняет все свои ножи.</li>
-      <li><b>Зона сужается.</b> Снаружи ножи тают, а без ножей там не продержаться.</li>
-      <li><b>Кусты</b> прячут: издалека тебя не видно.</li>
-      <li><b>Бонусы:</b> ⚡ скорость, 🛡️ щит (выдержит один удар), 🧲 магнит, 🌀 ярость (ножи крутятся вдвое быстрее), 🔪 +5 ножей.</li>
-      <li>Последний выживший выигрывает раунд. Достижения открывают шапки и ножи.</li>
-    </ul>
+<div id="rules" class="screen">
+  <canvas id="demo"></canvas>
+  <div class="rulesWrap">
+    <div class="rulesBox">
+      <div class="steps"><span class="done">1 · Боец</span><span class="done">2 · Режим</span><span class="on">3 · В бой</span></div>
+      <h2 id="rulesTitle"></h2>
+      <div class="sub" id="rulesSub"></div>
+      <ul class="rules">
+        <li><b>Движение:</b> на телефоне веди пальцем по экрану — джойстик появится под пальцем. На компьютере — мышь или WASD / стрелки.</li>
+        <li><b>⚡ Рывок</b> — кнопка справа внизу, на компьютере — пробел или клик.</li>
+        <li>Вокруг тебя крутятся ножи. <b>Подбирай ножи</b> с земли — их станет больше, а круг шире.</li>
+        <li><b>Нож о нож</b> — оба теряют по ножу. <b>Нож по телу</b> — соперник выбывает и роняет все свои ножи.</li>
+        <li><b>Зона сужается.</b> Снаружи ножи тают, а без ножей там не продержаться.</li>
+        <li><b>Кусты</b> прячут: издалека тебя не видно.</li>
+        <li><b>Бонусы:</b> ⚡ скорость, 🛡️ щит, 🧲 магнит, 🌀 ярость, 🔪 +5 ножей.</li>
+        <li><b>Последний выживший</b> выигрывает раунд.</li>
+      </ul>
+    </div>
+    <div class="rulesBottom">
+      <div class="netStatus"></div>
+      <div class="row center"><button class="btn" id="btnRulesBack">← Назад</button><button class="btn big b-green fight" id="btnFight">⚔️ В бой!</button></div>
+    </div>
   </div>
 </div>
+
+<div id="achBox"><div class="rebox">
+  <h2>🏅 Достижения</h2>
+  <div id="progress"></div>
+  <div class="row center" style="margin-top:12px"><button class="btn" id="btnAchClose">Закрыть</button></div>
+</div></div>
 
 <!-- ============ Комната ============ -->
 <div id="lobby" class="screen">
@@ -216,7 +272,11 @@ function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
 function clamp(v,a,b){return v<a?a:v>b?b:v}
 function lerp(a,b,t){return a+(b-a)*t}
 function angLerp(a,b,t){let d=(b-a)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return a+d*t}
-function show(id){for(const s of document.querySelectorAll('.screen'))s.classList.toggle('active',s.id===id)}
+function show(id){
+  for(const s of document.querySelectorAll('.screen'))s.classList.toggle('active',s.id===id);
+  $('btnAch').style.display=id==='game'?'none':'';
+  if(id!=='game')scrollTo(0,0);
+}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 let toastT=null;
 function toast(t,ms){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),ms||2600)}
@@ -456,25 +516,109 @@ function drawBody(ctx,f,sk,now){
   gr.addColorStop(0,shade(col,0.35));gr.addColorStop(1,col);
   ctx.fillStyle=gr;ctx.strokeStyle=shade(col,-0.35);ctx.lineWidth=3;
   ctx.beginPath();ctx.arc(f.x,f.y,R,0,Math.PI*2);ctx.fill();ctx.stroke();
-  // глаза смотрят туда, куда идёт боец
-  const fx=Math.cos(f.face),fy=Math.sin(f.face);
-  for(const s of [-1,1]){
-    const ex=f.x+fx*R*0.35-fy*s*R*0.36,ey=f.y+fy*R*0.35+fx*s*R*0.36;
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ex,ey,R*0.24,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#1b1b22';ctx.beginPath();ctx.arc(ex+fx*R*0.1,ey+fy*R*0.1,R*0.12,0,Math.PI*2);ctx.fill();
-  }
+  // глаза-«наклейки»: зрачок болтается внутри глаза (см. updateEyes)
+  const fx=Math.cos(f.face),fy=Math.sin(f.face),er=R*0.31,pr=R*0.15;
+  [-1,1].forEach((s,n)=>{
+    const ex=f.x+fx*R*0.3-fy*s*R*0.37,ey=f.y+fy*R*0.3+fx*s*R*0.37;
+    ctx.fillStyle='#fff';ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=1.3;
+    ctx.beginPath();ctx.arc(ex,ey,er,0,Math.PI*2);ctx.fill();ctx.stroke();
+    const e=f.eyes&&f.eyes[n];
+    const px=e?e.x:fx*R*0.08,py=e?e.y:fy*R*0.08;
+    ctx.fillStyle='#16161c';ctx.beginPath();ctx.arc(ex+px,ey+py,pr,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.85)';ctx.beginPath();ctx.arc(ex-er*0.35,ey-er*0.4,er*0.18,0,Math.PI*2);ctx.fill(); // блик пластика
+  });
   if(sk.hat&&sk.hat!=='none')drawHat(ctx,sk.hat,f.x,f.y,R);
 }
+// Зрачки как у глаз-наклеек: отстают от рывков и разгонов, бьются о край глаза
+// и трясутся, пока боец бежит. Каждый глаз сам по себе — поэтому смешно и вразнобой.
+function updateEyes(f,dt){
+  if(!(dt>0))return;
+  if(!f.eyes){f.eyes=[{x:0,y:0,vx:0,vy:0},{x:0,y:0,vx:0,vy:0}];f.epx=f.x;f.epy=f.y;f.evx=0;f.evy=0;return}
+  const vx=(f.x-f.epx)/dt,vy=(f.y-f.epy)/dt;
+  f.epx=f.x;f.epy=f.y;
+  if(Math.hypot(vx,vy)>2500){f.evx=0;f.evy=0;return} // перескок (новый раунд, поправка) — не трясём
+  const ax=clamp((vx-f.evx)/dt,-9000,9000),ay=clamp((vy-f.evy)/dt,-9000,9000);
+  f.evx=vx;f.evy=vy;
+  const sp=Math.hypot(vx,vy),maxR=BODY_R*0.16;
+  // куда «тянет» зрачок: на бегу — вперёд по ходу, стоя — чуть вниз, как у наклейки на холодильнике
+  const lx=sp>20?vx/sp*maxR*0.75:0,ly=sp>20?vy/sp*maxR*0.75:maxR*0.55;
+  for(const e of f.eyes){
+    e.vx+=((lx-e.x)*80-e.vx*4-ax*0.035)*dt;
+    e.vy+=((ly-e.y)*80-e.vy*4-ay*0.035)*dt;
+    // бег трясёт: случайные толчки, чем быстрее — тем сильнее
+    if(sp>30&&Math.random()<dt*15){const a=Math.random()*Math.PI*2,m=(25+Math.random()*55)*Math.min(1.7,sp/220);e.vx+=Math.cos(a)*m;e.vy+=Math.sin(a)*m}
+    e.x+=e.vx*dt;e.y+=e.vy*dt;
+    const d=Math.hypot(e.x,e.y);
+    if(d>maxR){ // удар о край глаза — отскок
+      const nx=e.x/d,ny=e.y/d;e.x=nx*maxR;e.y=ny*maxR;
+      const vn=e.vx*nx+e.vy*ny;if(vn>0){e.vx-=1.6*vn*nx;e.vy-=1.6*vn*ny}
+    }
+  }
+}
 
-// превью бойца в меню
+// превью бойца в меню: пританцовывает, чтобы глаза болтались
+const previewF={x:0,y:0,k:12,rot:0,face:Math.PI/2};
+let previewAt=0;
 function drawPreview(now){
-  const c=$('preview'),ctx=c.getContext('2d'),sk=mySkin(),k=12;
-  const cam={x:0,y:0,s:c.width/2/(orbitR(k)+30)/1,w:c.width,h:c.height,dpr:1};
+  const c=$('preview'),ctx=c.getContext('2d'),sk=mySkin(),f=previewF;
+  const dt=previewAt?Math.min(0.05,(now-previewAt)/1000):0;previewAt=now;
+  const cam={x:0,y:0,s:c.width/2/(orbitR(f.k)+30),w:c.width,h:c.height,dpr:1};
   ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,c.width,c.height);
   setWorld(ctx,cam);
-  const f={x:0,y:0,k,rot:now/1000*SPIN*0.6,face:Math.sin(now/900)*0.8+Math.PI/2};
+  const hop=(now/1000)%2.4;
+  f.x=hop<1.2?Math.sin(hop/1.2*Math.PI*4)*9:0;f.y=hop<1.2?0:Math.sin((hop-1.2)/1.2*Math.PI*2)*5;
+  f.rot=now/1000*SPIN*0.6;f.face=Math.sin(now/900)*0.8+Math.PI/2;
+  updateEyes(f,dt);
   drawKnives(ctx,cam,f,sk.knife,now);
   drawBody(ctx,f,sk,now);
+}
+
+// живая арена за правилами: бойцы бегают, крутят ножи и болтают глазами
+let demo=null;
+function drawDemo(now,dt){
+  const c=$('demo'),dpr=Math.min(2,window.devicePixelRatio||1),W=c.clientWidth,H=c.clientHeight;
+  if(c.width!==Math.round(W*dpr)||c.height!==Math.round(H*dpr)){c.width=Math.round(W*dpr);c.height=Math.round(H*dpr)}
+  const ctx2=c.getContext('2d');
+  if(!demo){
+    const R=760,f=[];
+    for(let i=0;i<8;i++){
+      const a=Math.random()*Math.PI*2,d=Math.random()*R*0.6;
+      f.push({x:Math.cos(a)*d,y:Math.sin(a)*d,k:4+Math.floor(Math.random()*18),rot:Math.random()*6,face:a,wa:Math.random()*6.28,
+        sp:110+Math.random()*90,skin:i===0?mySkin():{color:Math.floor(Math.random()*COLORS.length),hat:RULES.HATS[Math.floor(Math.random()*RULES.HATS.length)],knife:RULES.KNIVES[Math.floor(Math.random()*3)]}});
+    }
+    const pk=[];for(let i=0;i<70;i++){const a=Math.random()*Math.PI*2,d=Math.sqrt(Math.random())*(R-40);pk.push([Math.cos(a)*d,Math.sin(a)*d,Math.random()*6.28])}
+    demo={R,f,pk,bush:[[-300,200,70],[350,-260,60],[120,380,55]].map(b=>({x:b[0],y:b[1],r:b[2],blobs:bushBlobs(b)}))};
+  }
+  for(const f of demo.f){
+    f.wa+=(Math.random()-0.5)*dt*3;
+    if(Math.hypot(f.x,f.y)>demo.R-160)f.wa=Math.atan2(-f.y,-f.x)+(Math.random()-0.5);
+    // иногда — рывок, чтобы глаза подпрыгнули
+    if(Math.random()<dt*0.25)f.burst=0.3;
+    f.burst=Math.max(0,(f.burst||0)-dt);
+    const sp=f.sp*(f.burst>0?2.3:1);
+    f.x+=Math.cos(f.wa)*sp*dt;f.y+=Math.sin(f.wa)*sp*dt;f.face=f.wa;
+    f.rot+=SPIN*dt;
+    updateEyes(f,dt);
+  }
+  const s=clamp(Math.max(W,H)/(demo.R*1.5),0.35,1.1);
+  const cam={x:0,y:0,s,w:W,h:H,dpr};
+  ctx2.setTransform(1,0,0,1,0,0);ctx2.fillStyle='#0d120e';ctx2.fillRect(0,0,c.width,c.height);
+  setWorld(ctx2,cam);
+  ctx2.fillStyle='#3d6b3f';ctx2.beginPath();ctx2.arc(0,0,demo.R,0,Math.PI*2);ctx2.fill();
+  ctx2.save();ctx2.beginPath();ctx2.arc(0,0,demo.R,0,Math.PI*2);ctx2.clip();
+  ctx2.fillStyle='rgba(255,255,255,.035)';
+  for(let gx=-demo.R;gx<demo.R;gx+=90)for(let gy=-demo.R;gy<demo.R;gy+=90)if(((gx+gy)/90)&1)ctx2.fillRect(gx,gy,90,90);
+  ctx2.restore();
+  ctx2.strokeStyle='#5f5a4e';ctx2.lineWidth=18;ctx2.beginPath();ctx2.arc(0,0,demo.R+9,0,Math.PI*2);ctx2.stroke();
+  const steel=knifeSprite('steel',0);
+  for(const p of demo.pk){drawKnife(ctx2,cam,steel,p[0],p[1],p[2],0.8)}
+  setWorld(ctx2,cam);
+  for(const f of demo.f)drawKnives(ctx2,cam,f,f.skin.knife,now);
+  for(const f of demo.f)drawBody(ctx2,f,f.skin,now);
+  for(const b of demo.bush){
+    ctx2.fillStyle='#2f7a3a';for(const q of b.blobs){ctx2.beginPath();ctx2.arc(q.x,q.y,q.r,0,Math.PI*2);ctx2.fill()}
+    ctx2.fillStyle='#3e9a4a';for(const q of b.blobs){ctx2.beginPath();ctx2.arc(q.x-q.r*0.25,q.y-q.r*0.3,q.r*0.45,0,Math.PI*2);ctx2.fill()}
+  }
 }
 
 // ================= Состояние боя на этом устройстве =================
@@ -754,6 +898,7 @@ function frame(){
   requestAnimationFrame(frame);
   const now=performance.now(),dt=Math.min(0.05,(now-lastFrame)/1000);lastFrame=now;
   if($('menu').classList.contains('active')){drawPreview(now);return}
+  if($('rules').classList.contains('active')){drawDemo(now,dt);return}
   if(!$('game').classList.contains('active')||!G||!G.last)return;
   sendInput(now);
   predict(dt,now);
@@ -769,6 +914,7 @@ function step(dt,now){
   for(const p of G.flyPk)p.life-=dt;
   G.flyPk=G.flyPk.filter(p=>p.life>0);
   G.shake=Math.max(0,G.shake-dt*30);
+  for(const f of G.f)if(f.alive&&f.seen)updateEyes(f,dt);
   // след от скорости и ярости
   for(const f of G.f)if(f.alive&&(f.flags&4||f.flags&32)&&Math.random()<0.5)addPart(f.x,f.y,{v:20,life:0.3,col:shade(colorOf(f.i),0.3),size:6,drag:3});
   // отсчёт перед раундом
@@ -1119,7 +1265,7 @@ function toMenu(){
   if(NET.conn&&NET.gameId&&!NET.host)netSend({action:'leave'});
   clearSession();netClose();G=null;mode=null;
   $('roundEnd').classList.remove('show');$('pauseBox').classList.remove('show');
-  show('menu');renderProgress();
+  show('modes');renderProgress(); // после боя — сразу к выбору режима
 }
 
 // ================= Онлайн =================
@@ -1134,6 +1280,7 @@ const NET={conn:null,via:'p2p',host:false,solo:false,slot:null,gameId:null,token
 const SERVED=/^https?:$/.test(location.protocol);
 const AUTO_WS=SERVED?(location.protocol==='https:'?'wss://':'ws://')+location.host:null;
 let PY_SERVER=false; // страницу отдал server.py — к нему подключаемся автоматически
+let LINK_VIA=false;  // способ связи задала ссылка-приглашение — не меняем его
 let serverIp=lsGet('knives_server_ip')||'127.0.0.1:8766';
 $('serverIp').value=serverIp;
 function wsUrl(){if(PY_SERVER)return AUTO_WS;return /^wss?:\/\//i.test(serverIp)?serverIp:'ws://'+serverIp}
@@ -1153,10 +1300,10 @@ if(SERVED){
   fetch('knives-server.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(info=>{
     if(!info||!info.knives)return;
     PY_SERVER=true;NET.lan=info.lan||NET.lan;
-    if(!NET.conn&&!NET.token)setVia(lsGet('knives_via')||'ws');else setVia(NET.via);
+    if(!NET.conn&&!NET.token&&!LINK_VIA)setVia(lsGet('knives_via')||'ws');else setVia(NET.via);
   }).catch(()=>{});
 }
-function netStatus(t){$('netStatus').textContent=t}
+function netStatus(t){for(const el of document.querySelectorAll('.netStatus'))el.textContent=t}
 function saveServer(){const v=$('serverIp').value.trim();if(!v)return;serverIp=v;lsSet('knives_server_ip',v);netStatus('Адрес сохранён: '+wsUrl())}
 $('btnSaveServer').onclick=saveServer;
 function netOnline(){return !!(NET.conn&&NET.conn.readyState===1)}
@@ -1456,7 +1603,7 @@ function lostText(){
 function socketLost(){
   if(NET.token&&NET.gameId){scheduleReconnect();return}
   netStatus(lostText());
-  if($('lobby').classList.contains('active'))show('menu');
+  if($('lobby').classList.contains('active'))show('rules'); // там видно, что пошло не так, и можно нажать «В бой!» ещё раз
 }
 function scheduleReconnect(delay){
   if(NET.rtimer||NET.conn||!NET.token)return;
@@ -1470,7 +1617,7 @@ function scheduleReconnect(delay){
       const lost='Нет связи с '+(NET.via==='ws'?'сервером':'создателем игры');
       clearSession();
       if(G&&mode==='online'){G.disconnected=true;toast(lost)}
-      else{show('menu');netStatus('❌ '+lost)}
+      else{show('modes');netStatus('❌ '+lost)}
       return;
     }
     openSocket({action:'resume',game_id:NET.gameId,slot:NET.slot,token:NET.token,skin:mySkin()});
@@ -1545,10 +1692,40 @@ function netJoin(){
   if(!/^[A-Z0-9]{6}$/.test(id)){netStatus('Введите код игры из 6 символов');return}
   netConnect({action:'join_game',game_id:id,name:myName(),skin:mySkin()});
 }
-$('btnSolo').onclick=soloStart;
-$('btnCreate').onclick=netCreate;
-$('btnJoin').onclick=netJoin;
-$('joinId').addEventListener('keydown',e=>{if(e.key==='Enter')netJoin()});
+// --- этапы меню: боец → режим → правила на фоне арены → «В бой!» ---
+let pending=null; // что сделает «В бой!»: 'solo' | 'create' | 'join'
+const DIFF_NAMES={easy:'лёгкие',normal:'средние',hard:'сильные'};
+function goRules(kind){
+  pending=kind;netStatus('');
+  const o=gameOpts(),wins=o.wins?'матч до '+o.wins+' побед':'раунды без конца';
+  if(kind==='solo'){$('rulesTitle').textContent='🤖 Против ботов';$('rulesSub').textContent=o.size+' бойцов · боты '+DIFF_NAMES[o.diff]+' · '+wins}
+  else if(kind==='create'){$('rulesTitle').textContent='🌐 Онлайн-игра';$('rulesSub').textContent='Мест на арене: '+o.size+' · после «В бой!» появится ссылка для друзей'}
+  else{$('rulesTitle').textContent='🔗 Вход в игру '+$('joinId').value.trim().toUpperCase();$('rulesSub').textContent='Тебя ждут на арене!'}
+  demo=null;
+  show('rules');
+}
+function fight(){
+  audioInit();
+  if(pending==='solo')soloStart();
+  else if(pending==='create')netCreate();
+  else netJoin();
+}
+$('btnNext').onclick=()=>{myName();show('modes')};
+$('btnBackChar').onclick=()=>show('menu');
+$('mSolo').onclick=()=>goRules('solo');
+$('mCreate').onclick=()=>goRules('create');
+function tryJoin(){
+  const id=$('joinId').value.trim().toUpperCase();
+  if(!/^[A-Z0-9]{6}$/.test(id)){netStatus('Введите код игры из 6 символов');return}
+  goRules('join');
+}
+$('btnJoin').onclick=tryJoin;
+$('joinId').addEventListener('keydown',e=>{if(e.key==='Enter')tryJoin()});
+$('btnFight').onclick=fight;
+$('btnRulesBack').onclick=()=>{netClose();clearSession();netStatus('');show('modes')};
+$('btnAch').onclick=()=>{renderProgress();$('achBox').classList.add('show')};
+$('btnAchClose').onclick=()=>$('achBox').classList.remove('show');
+$('achBox').onclick=e=>{if(e.target===$('achBox'))$('achBox').classList.remove('show')};
 function inviteLink(){
   if(!SERVED||!NET.gameId)return null;
   let base=location.origin+location.pathname.replace(/index\.html$/,'');
@@ -1637,7 +1814,7 @@ function onNet(m){
     case'resume_failed':case'game_closed':
       clearSession();
       if(G&&mode==='online'){G.disconnected=true;toast(m.type==='game_closed'?'Создатель закрыл игру':'Эта игра уже закрыта',4000);setTimeout(()=>{if(G&&G.disconnected)toMenu()},2500)}
-      else if(mode!=='solo'){show('menu');netStatus(m.type==='game_closed'?'Создатель закрыл игру.':'Эта игра уже закрыта — создайте новую.')}
+      else if(mode!=='solo'){show('modes');netStatus(m.type==='game_closed'?'Создатель закрыл игру.':'Эта игра уже закрыта — создайте новую.')}
       break;
     case'pong':
       NET.pongAt=Date.now();
@@ -1680,8 +1857,10 @@ function netNotice(){
   const p2p=/^P2P=([A-Z0-9]{6})$/.exec(h);
   if(p2p||(SERVED&&/^[A-Z0-9]{6}$/.test(h))){
     history.replaceState(null,'',location.pathname+location.search);
+    LINK_VIA=true;
     if(p2p)setVia('p2p');else{PY_SERVER=true;setVia('ws')}
-    $('joinId').value=p2p?p2p[1]:h;netJoin();return;
+    // по ссылке — сразу к правилам на арене, одно нажатие «В бой!» — и ты в игре
+    $('joinId').value=p2p?p2p[1]:h;goRules('join');return;
   }
   // Вкладку перезагрузили посреди игры — возвращаемся в неё
   const s=loadSession();
