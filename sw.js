@@ -1,7 +1,7 @@
 // Service worker «Ножей»: игра открывается и без сети (игра с ботами, повторный запуск с иконки).
 // Свои файлы — сначала из сети, чтобы обновления приходили сразу; без сети — из кэша.
 // Модуль связи PeerJS (с CDN) — из кэша.
-const CACHE='nozhi-v4'; // новое имя — старый кэш удалится при обновлении
+const CACHE='nozhi-v5'; // новое имя — старый кэш удалится при обновлении
 const SHELL=['./','./index.html','./room.js','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png'];
 const PEERJS=['https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js'];
 
@@ -19,8 +19,9 @@ self.addEventListener('activate',e=>{
 function fromNetwork(req){
   // сеть с таймаутом: на плохом мобильном интернете не ждём вечно
   return new Promise((res,rej)=>{
-    const t=setTimeout(()=>rej(new Error('timeout')),4000);
-    fetch(req).then(r=>{clearTimeout(t);res(r)},err=>{clearTimeout(t);rej(err)});
+    const t=setTimeout(()=>rej(new Error('timeout')),6000);
+    // no-cache: браузер сверяет файл с сайтом (GitHub Pages иначе 10 минут отдаёт старую копию)
+    fetch(req,{cache:'no-cache'}).then(r=>{clearTimeout(t);res(r)},err=>{clearTimeout(t);rej(err)});
   });
 }
 

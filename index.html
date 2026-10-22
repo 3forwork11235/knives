@@ -70,6 +70,7 @@ details.card[open] summary{margin-bottom:10px}
 @keyframes pulse{50%{transform:scale(1.04)}}
 /* достижения — кнопка в углу и окно */
 #btnAch{position:fixed;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));z-index:15;--s:44px}
+#ver{position:fixed;left:max(8px,env(safe-area-inset-left));bottom:max(6px,env(safe-area-inset-bottom));font-size:11px;color:#5c667e;z-index:15;pointer-events:none}
 #achBox{position:fixed;inset:0;z-index:25;display:none;align-items:center;justify-content:center;background:rgba(5,8,14,.6);padding:12px}
 #achBox.show{display:flex}
 #achBox .rebox{text-align:left}#achBox h2{text-align:center}
@@ -126,6 +127,7 @@ body.touch #btnDash{display:block}
 
 <!-- ============ Меню: 1 — боец, 2 — режим, 3 — правила на фоне арены ============ -->
 <button class="ibtn" id="btnAch" title="Достижения">🏅</button>
+<div id="ver"></div>
 
 <div id="menu" class="screen active">
   <div class="steps"><span class="on">1 · Боец</span><span>2 · Режим</span><span>3 · В бой</span></div>
@@ -268,7 +270,9 @@ body.touch #btnDash{display:block}
 <script src="room.js"></script>
 <script>
 'use strict';
+const VERSION='1.4'; // видно в углу меню — по нему ясно, что на устройстве свежая версия
 const $=id=>document.getElementById(id);
+$('ver').textContent='версия '+VERSION;
 const RULES=KnivesHub.rules;
 const {orbitR,speedOf,BODY_R,SPIN,DASH_T,DASH_CD,DASH_MUL,SPEED_MUL,MAGNET_R}=RULES;
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
@@ -279,7 +283,7 @@ function lerp(a,b,t){return a+(b-a)*t}
 function angLerp(a,b,t){let d=(b-a)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return a+d*t}
 function show(id){
   for(const s of document.querySelectorAll('.screen'))s.classList.toggle('active',s.id===id);
-  $('btnAch').style.display=id==='game'?'none':'';
+  $('btnAch').style.display=$('ver').style.display=id==='game'?'none':'';
   if(id!=='game')scrollTo(0,0);
 }
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -581,7 +585,8 @@ function drawPreview(now){
 // живая арена за правилами: бойцы бегают, крутят ножи и болтают глазами
 let demo=null;
 function drawDemo(now,dt){
-  const c=$('demo'),dpr=Math.min(2,window.devicePixelRatio||1),W=c.clientWidth,H=c.clientHeight;
+  // это лишь фон: рисуем без «ретины» — телефону легче, а под размытой карточкой разницы не видно
+  const c=$('demo'),dpr=1,W=c.clientWidth,H=c.clientHeight;
   if(c.width!==Math.round(W*dpr)||c.height!==Math.round(H*dpr)){c.width=Math.round(W*dpr);c.height=Math.round(H*dpr)}
   const ctx2=c.getContext('2d');
   if(!demo){
@@ -903,7 +908,11 @@ function frame(){
   requestAnimationFrame(frame);
   const now=performance.now(),dt=Math.min(0.05,(now-lastFrame)/1000);lastFrame=now;
   if($('menu').classList.contains('active')){drawPreview(now);return}
-  if($('rules').classList.contains('active')){drawDemo(now,dt);return}
+  if($('rules').classList.contains('active')){
+    // пока подключаемся — арена замирает, чтобы телефон все силы отдал соединению
+    if(!(NET.conn&&NET.conn.readyState===0)&&!joinTry)drawDemo(now,dt);
+    return;
+  }
   if(!$('game').classList.contains('active')||!G||!G.last)return;
   sendInput(now);
   predict(dt,now);
@@ -1420,7 +1429,12 @@ function peerTransport(gid){
       if(t.readyState===3)return;
       dc=peer.connect(PEER_PREFIX+gid,{reliable:true});
       const pc=dc.peerConnection;
-      if(pc)pc.addEventListener('icecandidate',e=>{if(e.candidate&&e.candidate.type)types.add(e.candidate.type)});
+      if(pc){
+        pc.addEventListener('icecandidate',e=>{if(e.candidate&&e.candidate.type)types.add(e.candidate.type)});
+        // показываем, как идёт подключение: гость видит, что дело движется
+        pc.addEventListener('iceconnectionstatechange',()=>{if(t.readyState===0&&t.onstage)t.onstage(pc.iceConnectionState)});
+      }
+      if(t.onstage)t.onstage('offer');
       dc.on('open',()=>tOpen(t));
       dc.on('data',d=>tData(t,d));
       dc.on('close',()=>fail(iceErr(dc)||'closed'));
@@ -1428,8 +1442,17 @@ function peerTransport(gid){
       t.send=o=>dc.send(JSON.stringify(o));
     });
   },fail);
-  // так и не соединились — сдаёмся с понятной причиной
-  setTimeout(()=>{if(t.readyState!==0)return;const pc=dc&&dc.peerConnection;fail(!dc?(peer&&peer.open?'timeout':'no-signal'):pc&&!pc.remoteDescription?'no-answer':iceErr(dc)||'timeout')},20000);
+  // Так и не соединились — сдаёмся с понятной причиной. Но если путь уже найден (ICE checking/connected),
+  // соединение просто медленное (телефон, ретранслятор): ждём до минуты, а не рвём его на полпути.
+  const started=Date.now();
+  t.progressing=()=>{const pc=dc&&dc.peerConnection,st=pc&&pc.iceConnectionState;return !!(pc&&pc.remoteDescription&&/checking|connected|completed/.test(st||''))};
+  const check=()=>{
+    if(t.readyState!==0)return;
+    if(t.progressing()&&Date.now()-started<60000){setTimeout(check,3000);return}
+    const pc=dc&&dc.peerConnection;
+    fail(!dc?(peer&&peer.open?'timeout':'no-signal'):pc&&!pc.remoteDescription?'no-answer':iceErr(dc)||'timeout');
+  };
+  setTimeout(check,20000);
   t.close=()=>{t.readyState=3;if(peer){try{peer.destroy()}catch(e){}}};
   return t;
 }
@@ -1613,6 +1636,8 @@ function openSocket(first){
     return;
   }
   NET.conn=t;
+  const STAGES={offer:'ищем создателя игры',checking:'создатель ответил, прокладываем путь',connected:'путь найден, открываем канал',completed:'путь найден, открываем канал',disconnected:'связь прерывается, ждём',failed:'сеть не пропускает'};
+  t.onstage=st=>{if(NET.conn===t&&!NET.token&&STAGES[st])netStatus('🔄 Подключение к игре '+(first.game_id||NET.gameId)+': '+STAGES[st]+'…'+(joinTry&&joinTry.n?' (попытка '+(joinTry.n+1)+')':''))};
   t.onopen=()=>{NET.pingAt=NET.pongAt=0;t.send(first);keepAwake()};
   t.onmessage=onNet;
   t.onclose=()=>{if(NET.conn!==t)return;NET.conn=null;NET.err=t.err;NET.diag=t.diag||null;socketLost()};
@@ -1652,7 +1677,12 @@ function scheduleReconnect(delay){
     openSocket({action:'resume',game_id:NET.gameId,slot:NET.slot,token:NET.token,skin:mySkin()});
     const t=NET.conn;
     // P2P соединяется дольше: загрузка модуля, сервер знакомств, поиск маршрута
-    setTimeout(()=>{if(NET.conn===t&&t&&t.readyState===0){NET.conn=null;t.close();scheduleReconnect()}},NET.via==='ws'?6000:15000);
+    const giveUp=()=>{
+      if(NET.conn!==t||!t||t.readyState!==0)return;
+      if(t.progressing&&t.progressing()){setTimeout(giveUp,3000);return} // путь найден — соединение дойдёт, ждём
+      NET.conn=null;t.close();scheduleReconnect();
+    };
+    setTimeout(giveUp,NET.via==='ws'?6000:20000);
   },delay);
 }
 function resumeNow(){
